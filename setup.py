@@ -25,6 +25,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+          'spatial_node = oakd.spatial:main',
         ],
     },
 )
