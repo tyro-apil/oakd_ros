@@ -27,11 +27,18 @@ def generate_launch_description():
     remappings=[("image_raw", depth_image_topic)]
   )
 
+  markers_node_cmd=Node(
+    package='oakd',
+    executable='markers_node',
+    name='markers_node'
+  )
+
   
   ld = LaunchDescription()
   
   ld.add_action(depth_image_topic_cmd)
 
   ld.add_action(spatial_node_cmd)
+  ld.add_action(markers_node_cmd)
 
   return ld

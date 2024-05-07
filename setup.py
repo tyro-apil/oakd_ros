@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
           'spatial_node = oakd.spatial:main',
+          'markers_node = oakd.rviz_markers:main'
         ],
     },
 )
