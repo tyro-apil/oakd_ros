@@ -12,28 +12,28 @@ from typing import List
 
 class HostSpatialsCalc:
   def __init__(self):
-      # Values
-      self.THRESH_LOW = 500 # 50cm
-      self.THRESH_HIGH = 6000 # 6m
+    # Values
+    self.THRESH_LOW = 500 # 50cm
+    self.THRESH_HIGH = 6000 # 6m
 
   def setLowerThreshold(self, threshold_low):
-      self.THRESH_LOW = threshold_low
+    self.THRESH_LOW = threshold_low
   def setUpperThreshold(self, threshold_low):
-      self.THRESH_HIGH = threshold_low
+    self.THRESH_HIGH = threshold_low
   def setDeltaRoi(self, delta):
-      self.DELTA = delta
+    self.DELTA = delta
 
   def _check_input(self, roi, frame): # Check if input is ROI or point. If point, convert to ROI
-      if len(roi) == 4: return roi
-      if len(roi) != 2: raise ValueError("You have to pass either ROI (4 values) or point (2 values)!")
-      # Limit the point so ROI won't be outside the frame
-      self.DELTA = 5 # Take 10x10 depth pixels around point for depth averaging
-      x = min(max(roi[0], self.DELTA), frame.shape[1] - self.DELTA)
-      y = min(max(roi[1], self.DELTA), frame.shape[0] - self.DELTA)
-      return (x-self.DELTA,y-self.DELTA,x+self.DELTA,y+self.DELTA)
+    if len(roi) == 4: return roi
+    if len(roi) != 2: raise ValueError("You have to pass either ROI (4 values) or point (2 values)!")
+    # Limit the point so ROI won't be outside the frame
+    self.DELTA = 5 # Take 10x10 depth pixels around point for depth averaging
+    x = min(max(roi[0], self.DELTA), frame.shape[1] - self.DELTA)
+    y = min(max(roi[1], self.DELTA), frame.shape[0] - self.DELTA)
+    return (x-self.DELTA,y-self.DELTA,x+self.DELTA,y+self.DELTA)
 
   def _calc_angle(self, frame, offset, HFOV):
-      return math.atan(math.tan(HFOV / 2.0) * offset / (frame.shape[1] / 2.0))
+    return math.atan(math.tan(HFOV / 2.0) * offset / (frame.shape[1] / 2.0))
 
   # roi has to be list of ints
   def calc_spatials(self, depthFrame, roi, averaging_method=np.mean):
@@ -84,7 +84,7 @@ class SpatialCalculator(Node):
     super().__init__('spatial_node')
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
-        BallArray, "/balls_world_msg", 10
+        BallArray, "/balls_cam_coordinate", 10
     )
 
     raw_img_sub = message_filters.Subscriber(self, Image, "image_raw", qos_profile=10)  #subscriber to raw image message
