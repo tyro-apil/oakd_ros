@@ -18,10 +18,18 @@ class Cam2BaseTransform(Node):
       BallArray, "/balls_cam_coordinate", self.balls_cam_callback, 10
     )
 
-    self._ROTATION_MATRIX = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
-    self._T_VECS = np.array([0, 0, 0]) 
+    self._ROTATION_MATRIX = np.array(
+      [[-0.0195784,  -0.99941771,  0.02794497],
+      [-0.02119683, -0.02752913, -0.99939624],
+      [ 0.9995836,  -0.02015893, -0.02064551]]
+    )
+    self._T_VECS = np.array(
+      [[-0.13130262],
+      [ 0.58250643],
+      [-0.11096934]]
+    ) 
     self._TF_MATRIX = np.hstack((self._ROTATION_MATRIX, self._T_VECS))
-    self._TF_MATRIX = np.vstack((self._TF_MATRIX, [0, 0, 0, 1]))
+    self._TF_MATRIX = np.vstack((self._TF_MATRIX, [0.0, 0.0, 0.0, 1.0]))
     self._INV_TF_MATRIX = np.linalg.inv(self._TF_MATRIX)
 
     self.balls_world_msg = BallArray()
