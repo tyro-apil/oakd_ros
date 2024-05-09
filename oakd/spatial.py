@@ -110,11 +110,11 @@ class SpatialCalculator(Node):
     for detection in detections:
       # Parse bbox  
       bbox_xywh = self.parse_bbox(detection.bbox)
-      bbox_xyxy = xywh2xyxy(bbox_xywh)
-      bbox_xyxy = [int(index) for index in bbox_xyxy]
+      # bbox_xyxy = xywh2xyxy(bbox_xywh)
+      # bbox_xyxy = [int(index) for index in bbox_xyxy]
 
       # Calc Spatial Location
-      spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xyxy)
+      spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xywh[:2])
 
       # Get 'Ball' type message for individual detection
       ball_msg = Ball()
@@ -128,7 +128,7 @@ class SpatialCalculator(Node):
       ball_msg.score = detection.score
 
       self.balls_world_msg.balls.append(ball_msg)
-
+ 
     # Publish the 'BallArray' message
     self.balls_location_publisher.publish(self.balls_world_msg)
 
