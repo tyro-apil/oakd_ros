@@ -3,7 +3,8 @@ from rclpy.node import Node
 import message_filters
 from cv_bridge import CvBridge
 
-from yolov8_msgs.msg import DetectionArray, BoundingBox2D, BallArray, Ball
+from yolov8_msgs.msg import DetectionArray, BoundingBox2D
+from oakd_msgs.msg import SpatialBall, SpatialBallArray
 from sensor_msgs.msg import Image, CompressedImage
 
 import math
@@ -85,7 +86,7 @@ class SpatialCalculator(Node):
     super().__init__('spatial_node')
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
-        BallArray, "/balls_cam_coordinate", 10
+        SpatialBallArray, "/balls_cam_coordinate", 10
     )
 
     raw_img_sub = message_filters.Subscriber(self, Image, "image_raw", qos_profile=10)  #subscriber to raw image message
@@ -96,14 +97,16 @@ class SpatialCalculator(Node):
     self._synchronizer.registerCallback(self.detections_cb)
 
     self.bridge = CvBridge()
-    self.balls_world_msg = BallArray()
+    self.balls_cam_msg = SpatialBallArray()
     self.hostSpatials = HostSpatialsCalc()
 
     self.get_logger().info(f"SpatialCalculator node started.")
 
   def detections_cb(self, depthImg_msg: Image, detections_msg: DetectionArray):
     # Reset old data
-    self.balls_world_msg = BallArray()
+    balls_cam_msg = SpatialBallArray()
+    SpatialBallArray.header.stamp = self.get_clock().now().to_msg()
+    SpatialBallArray.header.frame_id = "oakd_rgb_camera_optical_frame"
 
     depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
     detections = detections_msg.detections
@@ -118,20 +121,21 @@ class SpatialCalculator(Node):
       spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xywh[:2])
 
       # Get 'Ball' type message for individual detection
-      ball_msg = Ball()
-      ball_msg.center.position.x = float(spatials['x'])
-      ball_msg.center.position.y = float(spatials['y'])
-      ball_msg.depth = float(spatials['z'])
-      ball_msg.radius = float((bbox_xywh[2]+bbox_xywh[3])/4)  # Radius in image
+      ball_msg = SpatialBall()
+      ball_msg.position.x = float(spatials['x'])
+      ball_msg.position.y = float(spatials['y'])
+      ball_msg.position.z = float(spatials['z'])
+    
       ball_msg.tracker_id = detection.id
       ball_msg.class_id = detection.class_id
       ball_msg.class_name = detection.class_name
       ball_msg.score = detection.score
 
-      self.balls_world_msg.balls.append(ball_msg)
- 
+      balls_cam_msg.spatial_balls.append(ball_msg)
+
+    self.balls_cam_msg = balls_cam_msg
     # Publish the 'BallArray' message
-    self.balls_location_publisher.publish(self.balls_world_msg)
+    self.balls_location_publisher.publish(self.balls_cam_msg)
 
   def parse_bbox(self, bbox_xywh: BoundingBox2D):
     """! Parse bbox from BoundingBox2D msg

@@ -15,6 +15,7 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
         (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.yaml'))),
         (os.path.join('share', 'yolov8_msgs', 'msg'), glob(os.path.join('msg', '*.msg'))),
+        (os.path.join('share', 'oakd_msgs', 'msg'), glob(os.path.join('msg', '*.msg'))),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 
-from yolov8_msgs.msg import BallArray, Ball
+from oakd_msgs.msg import SpatialBallArray, SpatialBall
 import numpy as np
 
 
@@ -11,11 +11,11 @@ class Cam2BaseTransform(Node):
     super().__init__('cam2base_node')
     ## Publisher of ball position data in real world
     self.balls_world_publisher = self.create_publisher(
-        BallArray, "/balls_world_coordinate", 10
+        SpatialBallArray, "/balls_world_coordinate", 10
     )
 
     self.balls_cam_subscriber = self.create_subscription(
-      BallArray, "/balls_cam_coordinate", self.balls_cam_callback, 10
+      SpatialBallArray, "/balls_cam_coordinate", self.balls_cam_callback, 10
     )
 
     self._ROTATION_MATRIX = np.array(
@@ -32,31 +32,34 @@ class Cam2BaseTransform(Node):
     self._TF_MATRIX = np.vstack((self._TF_MATRIX, [0.0, 0.0, 0.0, 1.0]))
     self._INV_TF_MATRIX = np.linalg.inv(self._TF_MATRIX)
 
-    self.balls_world_msg = BallArray()
+    # Store the most recent balls_world_message
+    self.balls_world_msg = SpatialBallArray()
     self.create_timer(1, self.timer_callback)
     self.get_logger().info(f"Cam2BaseTransform node started.")
 
 
-  def balls_cam_callback(self, msg: BallArray):
+  def balls_cam_callback(self, msg: SpatialBallArray):
     """Set the balls_cam_msg to the transformed balls_world_msg"""
-    self.balls_world_msg = BallArray()
-    for ball in msg.balls:
+    balls_world_msg = SpatialBallArray()
+
+    for ball in msg.spatial_balls:
       
-      ball_world_msg = Ball()
+      ball_world_msg = SpatialBall()
       ball_world_msg = ball
 
-      cam_xyz = ball.center.position
+      cam_xyz = ball.position
       world_xyz = self.cam2world(cam_xyz)
-      ball_world_msg.center.position.x = world_xyz[0]
-      ball_world_msg.center.position.y = world_xyz[1]
-      ball_world_msg.center.position.z = world_xyz[2]
+      ball_world_msg.position.x = world_xyz[0]
+      ball_world_msg.position.y = world_xyz[1]
+      ball_world_msg.position.z = world_xyz[2]
 
-      self.balls_world_msg.balls.append(ball_world_msg)
-    
+      self.balls_world_msg.spatial_balls.append(ball_world_msg)
+
+    self.balls_world_msg = balls_world_msg
     self.balls_world_publisher.publish(self.balls_world_msg)
 
   def cam2world(self, point):
-    """cam2world the point from camera frame to world frame"""
+    """Transform the point from camera frame to world frame"""
     point = np.array([point.x, point.y, point.z, 1])
     point = np.dot(self._INV_TF_MATRIX, point)
 

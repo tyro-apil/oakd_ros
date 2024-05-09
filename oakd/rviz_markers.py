@@ -6,7 +6,7 @@ from rclpy.node import Node, Parameter
 from rclpy.duration import Duration
 
 import rclpy.serialization
-from yolov8_msgs.msg import BallArray
+from oakd_msgs.msg import SpatialBallArray
 from visualization_msgs.msg import Marker, MarkerArray 
 
 from typing import List, Tuple
@@ -24,8 +24,7 @@ class MarkerData:
   
   Data for visualization markers of sphere type in rviz2
   """
-  position: Tuple       ## Position of ball center (x,y)
-  depth: float          ## Depth of ball in camera_coordinate_system
+  position: Tuple       ## Position of ball center (x,y,z)
   tracker_id: str       ## Tracker id assigned to ball
   class_id: int         ## Use class id to change color of balls
   class_name: str
@@ -53,7 +52,7 @@ class MarkerBroadcaster(Node):
     
     ## Publisher of ball position data in real world
     self.balls_location_subscriber = self.create_subscription(
-      BallArray,
+      SpatialBallArray,
       '/balls_cam_coordinate',
       self.location_received_callback,
       10)
@@ -64,6 +63,7 @@ class MarkerBroadcaster(Node):
       10)
     
     self.balls_location_subscriber  # prevent unused variable warning
+    self.detected_markers = MarkerArray()
     self.get_logger().info(f"Marker node started")  
   
   def params_cb(self, params):
@@ -89,7 +89,7 @@ class MarkerBroadcaster(Node):
 
     marker.pose.position.x = ball.position[0]
     marker.pose.position.y = ball.position[1]
-    marker.pose.position.z = ball.depth
+    marker.pose.position.z = ball.position[2]
 
     marker.pose.orientation.x = 0.0
     marker.pose.orientation.y = 0.0
@@ -128,26 +128,27 @@ class MarkerBroadcaster(Node):
     marker.color.b = marker_rgb['b']
     marker.color.a = marker_rgb['a']
 
-    marker.lifetime = Duration(seconds=0.5).to_msg()
+    marker.lifetime = Duration(seconds=0.25).to_msg()
     marker.text = ball.class_name
 
     return marker
   
-  def location_received_callback(self, msg: BallArray):
+  def location_received_callback(self, msg: SpatialBallArray):
     """Callback upon receiving location of balls"""
     marker_array = MarkerArray()
     
-    for ball in msg.balls:
+    for ball in msg.spatial_balls:
       
-      center_m=(ball.center.position.x, ball.center.position.y)
+      position=(ball.position.x, ball.position.y, ball.position.z)
       
       ## In rviz2, measurements are in meters
-      ball_marker = MarkerData(position=tuple([center_data for center_data in center_m]), depth=ball.depth, tracker_id=int(ball.tracker_id), class_id=ball.class_id, class_name=ball.class_name)
+      ball_marker = MarkerData(position=tuple([coordinate for coordinate in position]), tracker_id=int(ball.tracker_id), class_id=ball.class_id, class_name=ball.class_name)
       
       marker = self.create_ball_marker(ball_marker)
       marker_array.markers.append(marker)
     
-    self.marker_publisher.publish(marker_array)
+    self.detected_markers = marker_array
+    self.marker_publisher.publish(self.detected_markers)
 
   
 

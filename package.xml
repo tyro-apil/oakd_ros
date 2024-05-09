@@ -13,6 +13,7 @@
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>yolov8_msgs</exec_depend>
+  <exec_depend>oakd_msgs</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>builtin_interfaces</exec_depend>
   <exec_depend>message_filters</exec_depend>
