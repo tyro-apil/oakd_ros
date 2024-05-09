@@ -13,8 +13,8 @@ from typing import List
 class HostSpatialsCalc:
   def __init__(self):
     # Values
-    self.THRESH_LOW = 500 # 50cm
-    self.THRESH_HIGH = 6000 # 6m
+    self.THRESH_LOW = 200 # 20 cm
+    self.THRESH_HIGH = 30000 # 30 m
 
   def setLowerThreshold(self, threshold_low):
     self.THRESH_LOW = threshold_low
@@ -27,7 +27,7 @@ class HostSpatialsCalc:
     if len(roi) == 4: return roi
     if len(roi) != 2: raise ValueError("You have to pass either ROI (4 values) or point (2 values)!")
     # Limit the point so ROI won't be outside the frame
-    self.DELTA = 5 # Take 10x10 depth pixels around point for depth averaging
+    self.DELTA = 4 # Take 4x4 depth pixels around point for depth averaging
     x = min(max(roi[0], self.DELTA), frame.shape[1] - self.DELTA)
     y = min(max(roi[1], self.DELTA), frame.shape[0] - self.DELTA)
     return (x-self.DELTA,y-self.DELTA,x+self.DELTA,y+self.DELTA)
@@ -45,7 +45,8 @@ class HostSpatialsCalc:
     inRange = (self.THRESH_LOW <= depthROI) & (depthROI <= self.THRESH_HIGH)
 
     # Required information for calculating spatial coordinates on the host
-    HFOV = 1.254194
+    # HFOV = 1.254194             # OAKD PRO
+    HFOV = 2.2165681500327987   # OAKD PRO-W
     averageDepth = averaging_method(depthROI[inRange])
 
     centroid = { # Get centroid of the ROI
