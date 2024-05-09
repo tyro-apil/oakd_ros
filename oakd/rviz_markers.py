@@ -81,7 +81,7 @@ class MarkerBroadcaster(Node):
     marker = Marker()
     marker.header.frame_id = "oak_rgb_camera_optical_frame"
 
-    marker.ns = "balls_marker"
+    marker.ns = "detected_balls"
     marker.id = int(ball.tracker_id)
     marker.type = Marker.SPHERE
     marker.action = Marker.ADD
