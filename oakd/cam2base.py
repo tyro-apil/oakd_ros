@@ -30,7 +30,6 @@ class Cam2BaseTransform(Node):
     ) 
     self._TF_MATRIX = np.hstack((self._ROTATION_MATRIX, self._T_VECS))
     self._TF_MATRIX = np.vstack((self._TF_MATRIX, [0.0, 0.0, 0.0, 1.0]))
-    self._INV_TF_MATRIX = np.linalg.inv(self._TF_MATRIX)
 
     # Store the most recent balls_world_message
     self.balls_world_msg = SpatialBallArray()
@@ -61,7 +60,7 @@ class Cam2BaseTransform(Node):
   def cam2world(self, point):
     """Transform the point from camera frame to world frame"""
     point = np.array([point.x, point.y, point.z, 1])
-    point = np.dot(self._INV_TF_MATRIX, point)
+    point = np.dot(self._TF_MATRIX, point)
 
     # dehomogenize
     point = point[:3] / point[3]
