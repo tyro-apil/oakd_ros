@@ -46,8 +46,8 @@ class HostSpatialsCalc:
     inRange = (self.THRESH_LOW <= depthROI) & (depthROI <= self.THRESH_HIGH)
 
     # Required information for calculating spatial coordinates on the host
-    # HFOV = 1.254194             # OAKD PRO
-    HFOV = 2.2165681500327987   # OAKD PRO-W
+    # HFOV = 1.25419360             # OAKD PRO : in radians
+    HFOV = 2.216568150              # OAKD PRO-W : in radians
     averageDepth = averaging_method(depthROI[inRange])
 
     centroid = { # Get centroid of the ROI
@@ -105,8 +105,8 @@ class SpatialCalculator(Node):
   def detections_cb(self, depthImg_msg: Image, detections_msg: DetectionArray):
     # Reset old data
     balls_cam_msg = SpatialBallArray()
-    SpatialBallArray.header.stamp = self.get_clock().now().to_msg()
-    SpatialBallArray.header.frame_id = "oakd_rgb_camera_optical_frame"
+    balls_cam_msg.header.stamp = self.get_clock().now().to_msg()
+    balls_cam_msg.header.frame_id = ""
 
     depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
     detections = detections_msg.detections
@@ -115,10 +115,11 @@ class SpatialCalculator(Node):
       # Parse bbox  
       bbox_xywh = self.parse_bbox(detection.bbox)
       # bbox_xyxy = xywh2xyxy(bbox_xywh)
-      # bbox_xyxy = [int(index) for index in bbox_xyxy]
 
-      # Calc Spatial Location
+      # Send bbox center to spatial calculator
       spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xywh[:2])
+      # Send bbox as ROI to spatial calculator
+      # spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xyxy)
 
       # Get 'Ball' type message for individual detection
       ball_msg = SpatialBall()
