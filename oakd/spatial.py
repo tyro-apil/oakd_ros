@@ -5,7 +5,7 @@ from cv_bridge import CvBridge
 
 from yolov8_msgs.msg import DetectionArray, BoundingBox2D
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
-from sensor_msgs.msg import Image, CompressedImage
+from sensor_msgs.msg import Image
 
 import math
 import numpy as np
@@ -84,9 +84,10 @@ class SpatialCalculator(Node):
 
   def __init__(self):
     super().__init__('spatial_node')
+
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
-        SpatialBallArray, "/balls_cam_coordinate", 10
+        SpatialBallArray, "balls_cam", 10
     )
 
     raw_img_sub = message_filters.Subscriber(self, Image, "image_raw", qos_profile=10)  #subscriber to raw image message
@@ -148,8 +149,6 @@ class SpatialCalculator(Node):
     width = int(bbox_xywh.size.x)
     height = int(bbox_xywh.size.y)
     return [center_x, center_y, width, height]  
-
-
 
 def main(args=None):
   rclpy.init(args=args)

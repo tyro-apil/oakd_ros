@@ -11,11 +11,11 @@ class Cam2BaseTransform(Node):
     super().__init__('cam2base_node')
     ## Publisher of ball position data in real world
     self.balls_world_publisher = self.create_publisher(
-        SpatialBallArray, "/balls_world_coordinate", 10
+      SpatialBallArray, "/balls_baselink", 10
     )
 
     self.balls_cam_subscriber = self.create_subscription(
-      SpatialBallArray, "/balls_cam_coordinate", self.balls_cam_callback, 10
+      SpatialBallArray, "/balls_cam", self.balls_cam_callback, 10
     )
 
     self._ROTATION_MATRIX = np.array(

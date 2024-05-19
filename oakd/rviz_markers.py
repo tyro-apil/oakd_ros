@@ -28,8 +28,6 @@ class MarkerData:
   tracker_id: str       ## Tracker id assigned to ball
   class_id: int         ## Use class id to change color of balls
   class_name: str
-  
-
 
 class MarkerBroadcaster(Node):
   """! MarkerBroadcaster class as a Node
@@ -45,21 +43,21 @@ class MarkerBroadcaster(Node):
     super().__init__('marker_node')
 
     # List of colored balls to mark in RVIZ
-    self.declare_parameter("team_color", "")
-    self.team_color = self.get_parameter("team_color").get_parameter_value().string_array_value
+    self.declare_parameter("team_color", "red")
+    self.team_color = self.get_parameter("team_color").get_parameter_value().string_value
 
     self.add_on_set_parameters_callback(self.params_cb)
     
     ## Publisher of ball position data in real world
     self.balls_location_subscriber = self.create_subscription(
       SpatialBallArray,
-      '/balls_cam_coordinate',
+      'balls_cam',
       self.location_received_callback,
       10)
     ## Publisher of ball visualization markers
     self.marker_publisher = self.create_publisher(
       MarkerArray,
-      '/ball_markers',
+      'balls_detected',
       10)
     
     self.balls_location_subscriber  # prevent unused variable warning
@@ -77,11 +75,11 @@ class MarkerBroadcaster(Node):
     return SetParametersResult(successful=success)
 
   def create_ball_marker(self, ball: MarkerData):
-    """Returns a Marker msg type object from a MarkerData object"""
+    """Creates marker for detected balls w.r.t. camera_optical_frame"""
     marker = Marker()
     marker.header.frame_id = "oak_rgb_camera_optical_frame"
 
-    marker.ns = "detected_balls"
+    marker.ns = "detections"
     marker.id = int(ball.tracker_id)
     marker.type = Marker.SPHERE
     marker.action = Marker.ADD
