@@ -8,7 +8,8 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch.actions import GroupAction
 from launch_ros.actions import PushRosNamespace
-
+from launch.substitutions import LaunchConfiguration
+from launch.actions import DeclareLaunchArgument
 
 def generate_launch_description():
 
@@ -20,6 +21,12 @@ def generate_launch_description():
       get_package_share_directory('depthai_ros_driver'), 'launch'),
       '/rgbd_pcl.launch.py'])
     )
+  cam_driver = GroupAction(
+    actions=[
+      PushRosNamespace(namespace),
+      cam_driver,
+    ]
+   )
   
   yolov8_bringup = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
@@ -42,7 +49,7 @@ def generate_launch_description():
     )
 
   return LaunchDescription([
-    depthai_ros_driver,
+    cam_driver,
     yolov8_bringup,
     spatial_location,
   ])
