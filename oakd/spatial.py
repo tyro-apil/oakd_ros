@@ -90,7 +90,7 @@ class SpatialCalculator(Node):
         SpatialBallArray, "balls_cam", 10
     )
 
-    raw_img_sub = message_filters.Subscriber(self, Image, "image_raw", qos_profile=10)  #subscriber to raw image message
+    raw_img_sub = message_filters.Subscriber(self, Image, "stereo/depth/raw", qos_profile=10)  #subscriber to raw depth image message
     detections_sub = message_filters.Subscriber(self, DetectionArray, "tracking", qos_profile=10)  #subscriber to detections message
     
     # synchronise callback of two independent subscriptions
