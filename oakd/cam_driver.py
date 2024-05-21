@@ -7,6 +7,46 @@ from cv_bridge import CvBridge
 
 from datetime import timedelta
 import depthai as dai
+import cv2
+import numpy as np
+
+def paddedResize(image, target_size, pad_color=(0, 0, 0)):
+  h, w = image.shape[:2]
+  target_h, target_w = target_size
+
+  # Calculate the scaling factor to maintain aspect ratio
+  scale = min(target_w / w, target_h / h)
+
+  # Compute new dimensions of the image
+  new_w = int(w * scale)
+  new_h = int(h * scale)
+
+  # Resize the image
+  resized_image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+  padded_image = None
+
+  # Check if the image is grayscale or color
+  if len(image.shape) == 2:  # Grayscale image
+    if isinstance(pad_color, tuple):
+      pad_color = pad_color[0]  # Take the first element for grayscale padding
+
+    # Create a new image of the target size with the padding color for grayscale
+    padded_image = np.full((target_h, target_w), pad_color, dtype=np.uint16)
+  else:  # Color image
+    # Create a new image of the target size with the padding color for color
+    padded_image = np.full((target_h, target_w, 3), pad_color, dtype=np.uint8)
+
+  # Compute the top-left corner coordinates to center the resized image
+  top = (target_h - new_h) // 2
+  left = (target_w - new_w) // 2
+
+  # Place the resized image on the padded image
+  if len(image.shape) == 2:  # Grayscale image
+    padded_image[top:top + new_h, left:left + new_w] = resized_image
+  else:  # Color image
+    padded_image[top:top + new_h, left:left + new_w, :] = resized_image
+
+  return padded_image
 
 class DepthAICameraHandler(Node):
   def __init__(self):
@@ -109,15 +149,18 @@ class DepthAICameraHandler(Node):
     inRgb = self.qRgb.tryGet()  # Non-blocking call, will return None if no new data has arrived
     inDepth = self.qDepth.tryGet()  # Non-blocking call, will return None if no new data has arrived
 
-    # if inRgb is not None:
-    #   self.get_logger().info('Received RGB frame')
-    # if inDepth is not None: 
-    #   self.get_logger().info('Received Depth frame')
-
     if inRgb is not None and inDepth is not None:
       rgb_frame = inRgb.getCvFrame()
       depth_frame = inDepth.getCvFrame()
+
+      #Resize the opencv frames
+      # rgb_frame = cv2.resize(rgb_frame, (1280, 720), interpolation=cv2.INTER_AREA)
+      depth_frame = cv2.resize(depth_frame, (1280, 720), interpolation=cv2.INTER_AREA)
+      # rgb_frame = paddedResize(rgb_frame, (480, 640))
+      # depth_frame = paddedResize(depth_frame, (480, 640))
+
       # Convert the frame to a ROS Image message and publish it
+      # self.get_logger().info(f'RGB frame shape {rgb_frame.shape} Depth frame shape {depth_frame.shape}')
       rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(rgb_frame, encoding='bgr8')
       depthImg_ros_msg = self.bridge.cv2_to_imgmsg(depth_frame, encoding='16UC1')
       self.rgb_publisher_.publish(rgbImg_ros_msg)
