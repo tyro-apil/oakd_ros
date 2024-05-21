@@ -79,7 +79,22 @@ def xywh2xyxy(xywh: List)->List:
   xyxy.append(xywh[1]+int(xywh[3]/2))
   return xyxy
 
+class CameraInfo:
+  """Camera info class to calculate spatial location of the object in the real world"""
+  def __init__(self, fx, fy, cx, cy):
+    self.fx_ = fx
+    self.fy_ = fy
+    self.cx_ = cx
+    self.cy_ = cy
 
+  def get_spatial_location(self, depth, x_img, y_img):
+    spatials = {}
+    x_cam = (x_img - self.cx_) * depth / self.fx_
+    y_cam = (y_img - self.cy_) * depth / self.fy_
+    spatials['x'] = x_cam/1000
+    spatials['y'] = y_cam/1000
+    spatials['z'] = depth/1000
+    return spatials
 class SpatialCalculator(Node):
 
   def __init__(self):
@@ -92,6 +107,8 @@ class SpatialCalculator(Node):
 
     raw_img_sub = message_filters.Subscriber(self, Image, "stereo/depth/raw", qos_profile=10)  #subscriber to raw depth image message
     detections_sub = message_filters.Subscriber(self, DetectionArray, "tracking", qos_profile=10)  #subscriber to detections message
+
+    self.camera_info_handler = CameraInfo(1.14272229e+03, 1.14172986e+03, 9.69787109e+02, 5.42124939e+02)
     
     # synchronise callback of two independent subscriptions
     self._synchronizer = message_filters.ApproximateTimeSynchronizer((raw_img_sub, detections_sub), 10, 0.5, True)
@@ -110,15 +127,20 @@ class SpatialCalculator(Node):
     balls_cam_msg.header.frame_id = ""
 
     depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
+    # self.get_logger().info(f"Received depth image with shape {depthFrame.shape}")
+
     detections = detections_msg.detections
 
     for detection in detections:
       # Parse bbox  
       bbox_xywh = self.parse_bbox(detection.bbox)
+      center_xy = bbox_xywh[:2]
+      center_xy = [int(item) for item in center_xy]
       # bbox_xyxy = xywh2xyxy(bbox_xywh)
 
       # Send bbox center to spatial calculator
-      spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xywh[:2])
+      # spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xywh[:2])
+      spatials = self.camera_info_handler.get_spatial_location(depthFrame[center_xy[1], center_xy[0]], center_xy[0], center_xy[1])
       # Send bbox as ROI to spatial calculator
       # spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xyxy)
 
