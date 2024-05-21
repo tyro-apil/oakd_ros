@@ -26,6 +26,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+          'camera_info_node = oakd.camera_info:main',
           'driver_node = oakd.cam_driver:main',
           'spatial_node = oakd.spatial:main',
           'markers_node = oakd.rviz_markers:main'
