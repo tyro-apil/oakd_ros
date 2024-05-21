@@ -111,7 +111,7 @@ class SpatialCalculator(Node):
     self.camera_info_handler = CameraInfo(1.14272229e+03, 1.14172986e+03, 9.69787109e+02, 5.42124939e+02)
     
     # synchronise callback of two independent subscriptions
-    self._synchronizer = message_filters.ApproximateTimeSynchronizer((raw_img_sub, detections_sub), 10, 0.5, True)
+    self._synchronizer = message_filters.ApproximateTimeSynchronizer((raw_img_sub, detections_sub), 10, 0.05, True)
     self._synchronizer.registerCallback(self.detections_cb)
 
     self.bridge = CvBridge()
