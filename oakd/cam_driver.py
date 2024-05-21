@@ -12,10 +12,10 @@ class DepthAICameraHandler(Node):
   def __init__(self):
     super().__init__('camera_handler_node')
     # Camera parameters
-    self.fps_ = 30
+    self.fps_ = 20
     self.rgb_width_ = 1280
     self.rgb_height_ = 720
-    self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_800_P
+    self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
     self.alpha_ = None
 
     # Create a publisher for the RGB images
