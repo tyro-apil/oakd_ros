@@ -9,13 +9,14 @@ T_BASE2CAM = [0.0, 0.0, 0.0]
 QUAT_BASE2CAM = [0.0, 0.0, 0.0, 1.0]
 
 class StaticFramePublisher(Node):
-  def __init__(self, transformation):
+  def __init__(self):
     super().__init__('static_base2cam_tf_publisher')
 
     self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
     # Publish static transforms once at startup
-    self.make_transforms(transformation)
+    self.make_transforms()
+    self.get_logger().info('Static base2cam_optical transform published')
 
   def make_transforms(self):
     t = TransformStamped()

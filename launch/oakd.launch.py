@@ -47,9 +47,28 @@ def generate_launch_description():
       '/spatial.launch.py']),
     launch_arguments={'depth_image_topic': depth_image_topic}.items()
     )
+  spatial_location = GroupAction(
+    actions=[
+      PushRosNamespace(namespace),
+      spatial_location,
+    ]
+  )
+
+  transforms = IncludeLaunchDescription(
+    PythonLaunchDescriptionSource([os.path.join(
+      get_package_share_directory('oakd'), 'launch'),
+      '/transforms.launch.py'])
+    )
+  transforms = GroupAction(
+    actions=[
+      PushRosNamespace(namespace),
+      transforms,
+    ]
+  )
 
   return LaunchDescription([
     cam_driver,
     yolov8_bringup,
     spatial_location,
+    transforms
   ])
