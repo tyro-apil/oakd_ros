@@ -57,6 +57,11 @@ class DepthAICameraHandler(Node):
     right.setCamera("right")
     right.setFps(self.fps_)
 
+    stereo.setLeftRightCheck(True)
+    stereo.setDepthAlign(rgbCamSocket)
+    # stereo.setOutputSize(self.rgb_width_, self.rgb_height_)
+    # stereo.setOutputKeepAspectRatio(True)
+
     # Linking
     left.out.link(stereo.left)
     right.out.link(stereo.right)
@@ -74,7 +79,7 @@ class DepthAICameraHandler(Node):
 
     # Connect to device and start pipeline
     self.device = dai.Device(pipeline)
-    self.device.setIrLaserDotProjectorIntensity(1.0)
+    self.device.setIrLaserDotProjectorIntensity(0.5)
 
     # For now, RGB needs fixed focus to properly align with depth.
     # This value was used during calibration
