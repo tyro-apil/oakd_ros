@@ -7,15 +7,14 @@ from launch.actions import DeclareLaunchArgument
 
 
 def generate_launch_description():
-  
   #
   # ARGS
   #
   depth_image_topic = LaunchConfiguration("depth_image_topic")
   depth_image_topic_cmd = DeclareLaunchArgument(
       "depth_image_topic",
-      default_value="/image_raw",
-      description="Name of the input image topic")
+      default_value="stereo/depth/raw",
+      description="Name of the depth image topic")
   
   #
   # NODES
