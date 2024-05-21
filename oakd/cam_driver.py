@@ -46,7 +46,8 @@ class DepthAICameraHandler(Node):
     rgbCamSocket = dai.CameraBoardSocket.CAM_A
 
     camRgb.setBoardSocket(rgbCamSocket)
-    camRgb.setSize(self.rgb_width_, self.rgb_height_)
+    camRgb.setPreviewSize(self.rgb_width_, self.rgb_height_)
+    camRgb.Properties.previewKeepAspectRatio = True
     camRgb.setFps(self.fps_)
 
     left.setResolution(self.mono_resolution_)
@@ -60,7 +61,7 @@ class DepthAICameraHandler(Node):
     left.out.link(stereo.left)
     right.out.link(stereo.right)
     stereo.depth.link(sync.inputs["depth"])
-    camRgb.video.link(sync.inputs["rgb"])
+    camRgb.preview.link(sync.inputs["rgb"])
     sync.out.link(demux.input)
     demux.outputs["rgb"].link(rgbOut.input)
     demux.outputs["depth"].link(depthOut.input)
