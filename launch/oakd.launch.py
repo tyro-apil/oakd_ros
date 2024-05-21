@@ -12,14 +12,20 @@ from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
 
 def generate_launch_description():
+  namespace = 'oak'
 
-  input_image_topic = 'oak/rgb/image_raw'
-  depth_image_topic = 'oak/stereo/image_raw'
-
-  depthai_ros_driver = IncludeLaunchDescription(
+  input_image_topic = 'rgb/raw'
+  depth_image_topic = 'stereo/depth/raw'
+  model = 'oakd_nano.pt'
+  
+  cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
-      get_package_share_directory('depthai_ros_driver'), 'launch'),
-      '/rgbd_pcl.launch.py'])
+      get_package_share_directory('oakd'), 'launch'),
+      '/driver.launch.py']),
+    launch_arguments={
+      'rgb_image_topic': input_image_topic,
+      'depth_image_topic': depth_image_topic
+    }.items()
     )
   cam_driver = GroupAction(
     actions=[
@@ -32,13 +38,17 @@ def generate_launch_description():
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('yolov8_bringup'), 'launch'),
       '/yolov8.launch.py']),
-    launch_arguments={'input_image_topic': input_image_topic}.items()
+    launch_arguments={
+      'namespace': '',                    # By default, the namespace is set to 'yolo'
+      'input_image_topic': input_image_topic,
+      'model': model
+    }.items()
     )
-  yolov8_with_namespace = GroupAction(
-     actions=[
-         PushRosNamespace('yolo'),
-         yolov8_bringup,
-      ]
+  yolov8_bringup = GroupAction(
+    actions=[
+      PushRosNamespace(namespace),
+      yolov8_bringup,
+    ]
    )
   
   spatial_location = IncludeLaunchDescription(
