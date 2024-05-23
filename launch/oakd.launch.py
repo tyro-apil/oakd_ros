@@ -51,16 +51,28 @@ def generate_launch_description():
     ]
    )
   
-  spatial_location = IncludeLaunchDescription(
+  ball_location = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('oakd'), 'launch'),
-      '/spatial.launch.py']),
+      '/ball_location.launch.py']),
     launch_arguments={'depth_image_topic': depth_image_topic}.items()
     )
-  spatial_location = GroupAction(
+  ball_location = GroupAction(
     actions=[
       PushRosNamespace(namespace),
-      spatial_location,
+      ball_location,
+    ]
+  )
+
+  goalpose = IncludeLaunchDescription(
+    PythonLaunchDescriptionSource([os.path.join(
+      get_package_share_directory('oakd'), 'launch'),
+      '/goalpose.launch.py'])
+    )
+  goalpose = GroupAction(
+    actions=[
+      PushRosNamespace(namespace),
+      goalpose,
     ]
   )
 
@@ -77,8 +89,9 @@ def generate_launch_description():
   )
 
   return LaunchDescription([
+    transforms,
     cam_driver,
     yolov8_bringup,
-    spatial_location,
-    transforms
+    ball_location,
+    goalpose
   ])
