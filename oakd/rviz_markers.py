@@ -20,41 +20,25 @@ BALL_DIAMETER = 0.190
 
 @dataclass
 class MarkerData:
-  """! MarkerData class
-  
-  Data for visualization markers of sphere type in rviz2
-  """
   position: Tuple       ## Position of ball center (x,y,z)
   tracker_id: str       ## Tracker id assigned to ball
   class_id: int         ## Use class id to change color of balls
   class_name: str
 
 class MarkerBroadcaster(Node):
-  """! MarkerBroadcaster class as a Node
-
-  1. Publishes visualization markers for real world coordinates of balls for rviz2
-  """
-  
   def __init__(self):
-    """! MarkerBroadcaster class constructor
-        
-    @return instance of MarkerBroadcaster class
-    """
     super().__init__('marker_node')
 
-    # List of colored balls to mark in RVIZ
     self.declare_parameter("team_color", "red")
     self.team_color = self.get_parameter("team_color").get_parameter_value().string_value
 
     self.add_on_set_parameters_callback(self.params_cb)
     
-    ## Publisher of ball position data in real world
     self.balls_location_subscriber = self.create_subscription(
       SpatialBallArray,
-      'balls_cam',
+      'balls_map',
       self.location_received_callback,
       10)
-    ## Publisher of ball visualization markers
     self.marker_publisher = self.create_publisher(
       MarkerArray,
       'balls_detected',
@@ -75,9 +59,8 @@ class MarkerBroadcaster(Node):
     return SetParametersResult(successful=success)
 
   def create_ball_marker(self, ball: MarkerData):
-    """Creates marker for detected balls w.r.t. camera_optical_frame"""
     marker = Marker()
-    marker.header.frame_id = "oakd_rgb_camera_optical_frame"
+    marker.header.frame_id = "map"
 
     marker.ns = "oak_detections"
     marker.id = int(ball.tracker_id)
@@ -132,7 +115,6 @@ class MarkerBroadcaster(Node):
     return marker
   
   def location_received_callback(self, msg: SpatialBallArray):
-    """Callback upon receiving location of balls"""
     marker_array = MarkerArray()
     
     for ball in msg.spatial_balls:
