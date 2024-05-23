@@ -175,12 +175,15 @@ class GoalPose(Node):
     target_y_baselink = baselink_point[1] + self.Y_OFFSET
 
     target_map = self.base2map([target_x_baselink, target_y_baselink, 0.0])
+    target_map[0] += self.get_x_offset(target_ball_location)
+    target_map[1] += self.get_y_offset(target_ball_location)
+    clamped_target_map = self.clamp_target(target_map)
 
     yaw = self.get_goalPose_yaw(target_ball_location)
 
-    goalpose_map.pose.position.x = float(target_map[0])
-    goalpose_map.pose.position.y = float(target_map[1])
-    goalpose_map.pose.position.z = float(target_map[2])
+    goalpose_map.pose.position.x = float(clamped_target_map[0])
+    goalpose_map.pose.position.y = float(clamped_target_map[1])
+    goalpose_map.pose.position.z = float(clamped_target_map[2])
 
     q_goalpose = R.from_euler('ZYX', [yaw, 0., 0.]).as_quat()
     goalpose_map.pose.orientation.w = q_goalpose[0]
