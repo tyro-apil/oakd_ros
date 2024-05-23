@@ -77,9 +77,9 @@ class MarkerBroadcaster(Node):
   def create_ball_marker(self, ball: MarkerData):
     """Creates marker for detected balls w.r.t. camera_optical_frame"""
     marker = Marker()
-    marker.header.frame_id = "oak_rgb_camera_optical_frame"
+    marker.header.frame_id = "oakd_rgb_camera_optical_frame"
 
-    marker.ns = "detections"
+    marker.ns = "oak_detections"
     marker.id = int(ball.tracker_id)
     marker.type = Marker.SPHERE
     marker.action = Marker.ADD
