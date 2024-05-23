@@ -11,6 +11,8 @@ import math
 import numpy as np
 from typing import List
 
+from sensor_msgs.msg import CameraInfo
+
 class HostSpatialsCalc:
   def __init__(self):
     # Values
@@ -95,10 +97,20 @@ class CameraInfo:
     spatials['y'] = y_cam/1000
     spatials['z'] = depth/1000
     return spatials
+  
+  def set_camera_info(self, fx, fy, cx, cy):
+    self.fx_ = fx
+    self.fy_ = fy
+    self.cx_ = cx
+    self.cy_ = cy
 class SpatialCalculator(Node):
 
   def __init__(self):
     super().__init__('spatial_node')
+
+    # Declare parameters
+    self.declare_parameter("k", [761.81488037, 0.0, 646.52478027, 0.0, 761.15325928, 361.41662598, 0.0, 0.0, 1.0])
+    intrinsic_matrix_flat = self.get_parameter("k").get_parameter_value().double_array_value
 
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
@@ -108,7 +120,7 @@ class SpatialCalculator(Node):
     raw_img_sub = message_filters.Subscriber(self, Image, "stereo/depth/raw", qos_profile=10)  #subscriber to raw depth image message
     detections_sub = message_filters.Subscriber(self, DetectionArray, "tracking", qos_profile=10)  #subscriber to detections message
 
-    self.camera_info_handler = CameraInfo(1.14272229e+03, 1.14172986e+03, 9.69787109e+02, 5.42124939e+02)
+    self.camera_info_handler = CameraInfo(intrinsic_matrix_flat[0], intrinsic_matrix_flat[4], intrinsic_matrix_flat[2], intrinsic_matrix_flat[5])
     
     # synchronise callback of two independent subscriptions
     self._synchronizer = message_filters.ApproximateTimeSynchronizer((raw_img_sub, detections_sub), 10, 0.05, True)
@@ -139,7 +151,7 @@ class SpatialCalculator(Node):
       # bbox_xyxy = xywh2xyxy(bbox_xywh)
 
       # Send bbox center to spatial calculator
-      # spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xywh[:2])
+      # spatials = self.hostSpatials.calc_spatials(depthFrame, center_xy)
       spatials = self.camera_info_handler.get_spatial_location(depthFrame[center_xy[1], center_xy[0]], center_xy[0], center_xy[1])
       # Send bbox as ROI to spatial calculator
       # spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xyxy)
