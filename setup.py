@@ -30,6 +30,7 @@ setup(
           'driver_node = oakd.cam_driver:main',
           'spatial_node = oakd.spatial:main',
           'markers_node = oakd.rviz_markers:main',
+          'cam2base_node = oakd.ballsBase:main',
           'cam_optical2cam_ros_tf = transforms.cam_optical2cam_ros:main',
           'base2cam_optical_tf = transforms.base2cam_optical:main',
         ],
