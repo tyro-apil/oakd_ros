@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+from rclpy.qos import qos_profile_sensor_data
 
 from datetime import timedelta
 import depthai as dai
