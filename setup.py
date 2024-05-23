@@ -26,14 +26,17 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-          'camera_info_node = oakd.camera_info:main',
-          'driver_node = oakd.cam_driver:main',
-          'spatial_node = oakd.spatial:main',
-          'markers_node = oakd.rviz_markers:main',
-          'cam2base_node = oakd.ballsBase:main',
-          'base2map_node = oakd.ballsMap:main',
-          'cam_optical2cam_ros_tf = transforms.cam_optical2cam_ros:main',
-          'base2cam_optical_tf = transforms.base2cam_optical:main',
+            'camera_info_node = oakd.camera_info:main',
+            'driver_node = oakd.cam_driver:main',
+
+            'spatial_node = oakd.spatial:main',
+            'markers_node = oakd.rviz_markers:main',
+            'cam2base_node = oakd.ballsBase:main',
+            'base2map_node = oakd.ballsMap:main',
+            'goalpose_node = oakd.goal_pose:main',
+
+            'cam_optical2cam_ros_tf = transforms.cam_optical2cam_ros:main',
+            'base2cam_optical_tf = transforms.base2cam_optical:main',
         ],
     },
 )
