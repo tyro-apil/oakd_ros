@@ -19,11 +19,17 @@ def generate_launch_description():
     'config',
     'camera_info.yaml'
   )
+  
+  camera_info_topic = LaunchConfiguration("camera_info_topic")
+  camera_info_topic_cmd = DeclareLaunchArgument(
+      "camera_info_topic",
+      default_value="rgb/camera_info",
+      description="Name of the camera image topic")
 
   rgb_image_topic = LaunchConfiguration("rgb_image_topic")
   rgb_image_topic_cmd = DeclareLaunchArgument(
       "rgb_image_topic",
-      default_value="rgb/raw",
+      default_value="rgb/rect",
       description="Name of the rgb image topic")
   
   depth_image_topic = LaunchConfiguration("depth_image_topic")
@@ -38,6 +44,7 @@ def generate_launch_description():
   driver_node_cmd=Node(
     package='oakd',
     executable='driver_node',
+    namespace='oak',
     name='driver_node',
     remappings=[
       ("rgb/raw", rgb_image_topic),
@@ -47,13 +54,18 @@ def generate_launch_description():
 
   camera_info_node_cmd=Node(
     package='oakd',
+    namespace='oak',
     executable='camera_info_node',
     name='camera_info_node',
-    parameters=[camera_info_config]
+    parameters=[camera_info_config],
+    remappings=[
+      ("camera_info", camera_info_topic)
+    ]
   )
   
   ld = LaunchDescription()
   # Add arguments
+  ld.add_action(camera_info_topic_cmd)
   ld.add_action(rgb_image_topic_cmd)
   ld.add_action(depth_image_topic_cmd)
   # Add nodes
