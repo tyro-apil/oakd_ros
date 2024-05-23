@@ -14,7 +14,7 @@ from launch.actions import DeclareLaunchArgument
 def generate_launch_description():
   namespace = 'oak'
 
-  input_image_topic = 'rgb/raw'
+  input_image_topic = 'rgb/rect'
   depth_image_topic = 'stereo/depth/raw'
   model = 'oakd_nano.pt'
   
