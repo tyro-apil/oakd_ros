@@ -44,7 +44,7 @@ def generate_launch_description():
   driver_node_cmd=Node(
     package='oakd',
     executable='driver_node',
-    namespace='oak',
+    # namespace='oak',
     name='driver_node',
     remappings=[
       ("rgb/raw", rgb_image_topic),
@@ -54,7 +54,7 @@ def generate_launch_description():
 
   camera_info_node_cmd=Node(
     package='oakd',
-    namespace='oak',
+    # namespace='oak',
     executable='camera_info_node',
     name='camera_info_node',
     parameters=[camera_info_config],
