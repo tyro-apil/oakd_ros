@@ -15,11 +15,11 @@ class Base2MapCoordinateTransform(Node):
     super().__init__('base2map_node')
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(
-      SpatialBallArray, "/balls_map", 10
+      SpatialBallArray, "balls_map", 10
     )
 
     self.balls_baselink_subscriber = self.create_subscription(
-      SpatialBallArray, "/balls_baselink", self.balls_baselink_cb, 10
+      SpatialBallArray, "balls_baselink", self.balls_baselink_cb, 10
     )
     self.balls_baselink_subscriber # prevent unused variable warning
     
