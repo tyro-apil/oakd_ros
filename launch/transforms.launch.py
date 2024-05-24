@@ -13,16 +13,17 @@ from launch.actions import DeclareLaunchArgument
 BALL_DIAMETER = 0.190
 
 def generate_launch_description():  
-  
-  #
-  # NODES
-  #
- 
+  base2cam_config = os.path.join(
+    get_package_share_directory('oakd'),
+    'config',
+    'base2cam.yaml'
+  ) 
 
   base2cam_optical_tf_node_cmd= Node(
     package='oakd',
     executable='base2cam_optical_tf',
     name='base2cam_optical_tf',
+    parameters=[base2cam_config]
   )
   
   cam_optical2cam_ros_tf_node_cmd= Node(
