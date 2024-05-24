@@ -32,7 +32,7 @@ class Cam2BaseTransform(Node):
   def balls_cam_callback(self, msg: SpatialBallArray):
     balls_base_msg = SpatialBallArray()
   
-    for ball in msg.balls:
+    for ball in msg.spatial_balls:
       
       ball_base_msg = SpatialBall()
       ball_base_msg = ball
@@ -43,7 +43,7 @@ class Cam2BaseTransform(Node):
       ball_base_msg.position.y = float(ball_baselink_xyz[1])
       ball_base_msg.position.z = float(ball_baselink_xyz[2])
 
-      balls_base_msg.balls.append(ball_base_msg)
+      balls_base_msg.spatial_balls.append(ball_base_msg)
 
     self.balls_base_msg = balls_base_msg
     self.balls_base_publisher.publish(self.balls_base_msg)

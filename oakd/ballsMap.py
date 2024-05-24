@@ -47,7 +47,7 @@ class Base2MapCoordinateTransform(Node):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
     balls_map_msg = SpatialBallArray()
     # breakpoint()
-    for ball in msg.balls:
+    for ball in msg.spatial_balls:
       
       ball_map_msg = SpatialBall()
       ball_map_msg = ball
@@ -59,7 +59,7 @@ class Base2MapCoordinateTransform(Node):
       ball_map_msg.position.y = float(ball_map_xyz[1])
       ball_map_msg.position.z = float(ball_map_xyz[2])
 
-      balls_map_msg.balls.append(ball_map_msg)
+      balls_map_msg.spatial_balls.append(ball_map_msg)
 
     self.balls_map_msg = balls_map_msg
     self.balls_map_publisher.publish(self.balls_map_msg)
