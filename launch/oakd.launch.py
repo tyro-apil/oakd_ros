@@ -54,7 +54,7 @@ def generate_launch_description():
   ball_location = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('oakd'), 'launch'),
-      '/ball_location.launch.py']),
+      '/balls_location.launch.py']),
     launch_arguments={'depth_image_topic': depth_image_topic}.items()
     )
   ball_location = GroupAction(
