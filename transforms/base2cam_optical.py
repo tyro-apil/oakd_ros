@@ -35,10 +35,10 @@ class StaticFramePublisher(Node):
 
     q_base2cam = R.from_euler("ZYX", self.ypr_, degrees=True).as_quat()
   
-    t.transform.rotation.w = q_base2cam[0]
-    t.transform.rotation.x = q_base2cam[1]
-    t.transform.rotation.y = q_base2cam[2]
-    t.transform.rotation.z = q_base2cam[3]
+    t.transform.rotation.x = q_base2cam[0]
+    t.transform.rotation.y = q_base2cam[1]
+    t.transform.rotation.z = q_base2cam[2]
+    t.transform.rotation.w = q_base2cam[3]
 
     self.tf_static_broadcaster.sendTransform(t)
 

@@ -33,7 +33,7 @@ class Cam2BaseTransform(Node):
         f'Could not transform {self.to_frame_rel} to {self.from_frame_rel}: {ex}')
       return
     self.translation_base2cam = [t.transform.translation.x, t.transform.translation.y, t.transform.translation.z]
-    self.q_base2cam = [t.transform.rotation.w, t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z]
+    self.q_base2cam = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
     self.proj_base2cam = np.eye(4)
     self.proj_base2cam[:3, :3] = R.from_quat(self.q_base2cam).as_matrix()
     self.proj_base2cam[:3, 3] = self.translation_base2cam

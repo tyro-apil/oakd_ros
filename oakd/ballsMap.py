@@ -80,10 +80,10 @@ class Base2MapCoordinateTransform(Node):
     self._translation_map2base[1] = pose_msg.pose.pose.position.y
     self._translation_map2base[2] = pose_msg.pose.pose.position.z
 
-    self._quaternion_map2base[0] = pose_msg.pose.pose.orientation.w
-    self._quaternion_map2base[1] = pose_msg.pose.pose.orientation.x
-    self._quaternion_map2base[2] = pose_msg.pose.pose.orientation.y
-    self._quaternion_map2base[3] = pose_msg.pose.pose.orientation.z
+    self._quaternion_map2base[0] = pose_msg.pose.pose.orientation.x
+    self._quaternion_map2base[1] = pose_msg.pose.pose.orientation.y
+    self._quaternion_map2base[2] = pose_msg.pose.pose.orientation.z
+    self._quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
 
     self._orientation_map2base = R.from_quat(self._quaternion_map2base)
     self._rotation_map2base = self._orientation_map2base.as_matrix()

@@ -107,7 +107,7 @@ class GoalPose(Node):
 
   def baselink_pose_callback(self, msg: Odometry):
     self.baselink_translation = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z])
-    self.baselink_quaternion = np.array([msg.pose.pose.orientation.w, msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z])
+    self.baselink_quaternion = np.array( msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
     self.projection_map2base = np.hstack((R.from_quat(self.baselink_quaternion).as_matrix(), self.baselink_translation.reshape((-1,1))))
     self.projection_map2base = np.vstack((self.projection_map2base, [0.0, 0.0, 0.0, 1.0]))
 
@@ -187,10 +187,10 @@ class GoalPose(Node):
     goalpose_map.pose.position.z = float(clamped_target_map[2])
 
     q_goalpose = R.from_euler('ZYX', [yaw, 0., 0.]).as_quat()
-    goalpose_map.pose.orientation.w = q_goalpose[0]
-    goalpose_map.pose.orientation.x = q_goalpose[1]
-    goalpose_map.pose.orientation.y = q_goalpose[2]
-    goalpose_map.pose.orientation.z = q_goalpose[3]
+    goalpose_map.pose.orientation.x = q_goalpose[0]
+    goalpose_map.pose.orientation.y = q_goalpose[1]
+    goalpose_map.pose.orientation.z = q_goalpose[2]
+    goalpose_map.pose.orientation.w = q_goalpose[3]
 
     return goalpose_map
 
