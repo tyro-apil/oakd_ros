@@ -144,7 +144,7 @@ class DepthAICameraHandler(Node):
     self.qDepth = self.device.getOutputQueue(name="depth", maxSize=4, blocking=False)
 
     # Create a timer to periodically call the timer_callback function
-    self.timer = self.create_timer(0.03, self.timer_callback)
+    self.timer = self.create_timer(0.05, self.timer_callback)
 
   def timer_callback(self):
     inRgb = self.qRgb.tryGet()  # Non-blocking call, will return None if no new data has arrived
