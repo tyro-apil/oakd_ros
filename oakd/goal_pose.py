@@ -1,7 +1,7 @@
 """goal_pose.py - goal_pose_node
 Publishes goalPose message w.r.t. map frame
 """
-from yolov8_msgs.msg import BallArray
+from oakd_msgs.msg import SpatialBallArray
 
 import rclpy
 from rclpy.node import Node, Parameter
@@ -55,7 +55,7 @@ class GoalPose(Node):
     )
     self.baselink_pose_subscriber  # prevent unused variable warning
     self.balls_baselink_subscriber = self.create_subscription(
-      BallArray,
+      SpatialBallArray,
       "balls_map",
       self.data_received_cb,
       10
@@ -73,7 +73,7 @@ class GoalPose(Node):
     # Baselink pose w.r.t. map
     self.baselink_translation = np.ones(3, dtype=np.float32)
     self.baselink_quaternion = np.ones(4, dtype=np.float32)
-    self.projection_map2base = np.hstack((R.from_euler('ZYX', self.baselink_ypr).as_matrix(), self.baselink_translation.reshape((-1,1))))
+    self.projection_map2base = np.hstack((R.from_quat(self.baselink_quaternion).as_matrix(), self.baselink_translation.reshape((-1,1))))
     self.projection_map2base = np.vstack((self.projection_map2base, [0.0, 0.0, 0.0, 1.0]))
 
     self.goalpose_map = PoseStamped()
@@ -106,14 +106,14 @@ class GoalPose(Node):
     self.get_logger().info(f"\nposition: {self.goalPose_map.pose.position}\n orientation: {self.goalPose_map.pose.orientation}")
 
   def baselink_pose_callback(self, msg: Odometry):
-    self.baselink_translation = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
-    self.baselink_quaternion = [msg.pose.pose.orientation.w, msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z]
+    self.baselink_translation = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z])
+    self.baselink_quaternion = np.array([msg.pose.pose.orientation.w, msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z])
     self.projection_map2base = np.hstack((R.from_quat(self.baselink_quaternion).as_matrix(), self.baselink_translation.reshape((-1,1))))
     self.projection_map2base = np.vstack((self.projection_map2base, [0.0, 0.0, 0.0, 1.0]))
 
-  def data_received_cb(self, Balls_msg: BallArray):
-    self.get_logger().info(f"Number of deteted balls: {len(Balls_msg.balls)}")
-    team_colored_balls = self.get_team_colored_balls(Balls_msg.balls)
+  def data_received_cb(self, Balls_msg: SpatialBallArray):
+    self.get_logger().info(f"Number of deteted balls: {len(Balls_msg.spatial_balls)}")
+    team_colored_balls = self.get_team_colored_balls(Balls_msg.spatial_balls)
     self.get_logger().info(f"Number of team colored balls: {len(team_colored_balls)}")
     
     if len(team_colored_balls)>0:
@@ -137,7 +137,7 @@ class GoalPose(Node):
         target_index = self.get_min_distance_index(team_colored_balls)
         self.tracked_id = int(team_colored_balls[target_index].tracker_id)
         
-      target_ball_location = [team_colored_balls[target_index].center.position.x , (team_colored_balls[target_index].center.position.y)]
+      target_ball_location = [team_colored_balls[target_index].position.x , (team_colored_balls[target_index].position.y)]
       goalPose_map = self.get_goalPose_map(target_ball_location)
       self.set_goalPose(goalPose_map)
       self.publish_goalPose()
@@ -148,18 +148,18 @@ class GoalPose(Node):
   def get_team_colored_balls(self, balls):
     new_list = list(filter(lambda ball: 
       (ball.class_name == self.team_color) 
-      and (ball.center.position.x < self.max_xy_limit_[0])  
-      and (ball.center.position.y < self.max_xy_limit_[1])
+      and (ball.position.x < self.max_xy_limit_[0])  
+      and (ball.position.y < self.max_xy_limit_[1])
       , balls)
     )
     return new_list
       
   def get_min_distance_index(self, balls):
-    """Return index of ball at min distance from base_link inside BallArray msg"""
+    """Return index of ball at min distance from base_link inside SpatialBallArray msg"""
     min_distance_index=0
-    min_distance = get_dist((balls[min_distance_index].center.position.x, balls[min_distance_index].center.position.y))
+    min_distance = get_dist((balls[min_distance_index].position.x, balls[min_distance_index].position.y))
     for i, ball in enumerate(balls):
-      dist = get_dist((ball.center.position.x, ball.center.position.y))
+      dist = get_dist((ball.position.x, ball.position.y))
       if dist < min_distance:
         min_distance = dist
         min_distance_index = i
@@ -170,6 +170,7 @@ class GoalPose(Node):
     goalpose_map.header.stamp = self.get_clock().now().to_msg()
     goalpose_map.header.frame_id = "map"
     
+    # breakpoint()
     baselink_point = self.map2base([target_ball_location[0], target_ball_location[1], 0.0])
     target_x_baselink = baselink_point[0] + self.X_OFFSET
     target_y_baselink = baselink_point[1] + self.Y_OFFSET
@@ -195,12 +196,13 @@ class GoalPose(Node):
 
   def base2map(self, baselink_point):
     baselink_point.append(1.0)
+    # breakpoint()
     baselink_homogeneous_point = np.array(baselink_point, dtype=np.float32)
     map_point_homogeneous = np.dot(self.projection_map2base, baselink_homogeneous_point.reshape((-1,1)))
 
     # dehomogenize
     map_point = map_point_homogeneous / map_point_homogeneous[3]
-    return map_point[:3]
+    return map_point[:3].ravel()
 
   def get_goalPose_yaw(self, target_ball_location):
     # return 0.0
@@ -233,7 +235,7 @@ class GoalPose(Node):
     map_homogeneous_point = np.array(map_point, dtype=np.float32)
     baselink_point_homogeneous = np.dot(np.linalg.inv(self.projection_map2base), map_homogeneous_point.reshape((-1,1)))
     baselink_point = baselink_point_homogeneous / baselink_point_homogeneous[3]
-    return baselink_point[:3]
+    return baselink_point[:3].ravel()
 
   def clamp_target(self, target_map):
     clampped_target = target_map
