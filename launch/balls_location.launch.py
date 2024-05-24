@@ -25,12 +25,6 @@ def generate_launch_description():
     'camera_info.yaml'
   )
 
-  base2cam_config = os.path.join(
-    get_package_share_directory('oakd'),
-    'config',
-    'base2cam.yaml'
-  )
-
   #
   # NODES
   #
@@ -38,7 +32,7 @@ def generate_launch_description():
     package='oakd',
     executable='spatial_node',
     name='spatial_node',
-    remappings=[("image_raw", depth_image_topic)],
+    remappings=[("stereo/depth/raw", depth_image_topic)],
     parameters=[camera_info_config]
   )
 
@@ -51,8 +45,7 @@ def generate_launch_description():
   cam2base_node_cmd = Node(
     package='oakd',
     executable='cam2base_node',
-    name='cam2base_node',
-    parameters=[base2cam_config]
+    name='cam2base_node'
   )
 
   base2map_node_cmd = Node(
