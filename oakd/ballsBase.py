@@ -1,9 +1,14 @@
 import rclpy
 from rclpy.node import Node
 
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 BALL_DIAMETER = 0.190
 
@@ -11,17 +16,34 @@ class Cam2BaseTransform(Node):
 
   def __init__(self):
     super().__init__('cam2base_node')
+    self.from_frame_rel = "base_link"
+    self.to_frame_rel = "oakd_rgb_camera_optical_frame"
 
-    self.declare_parameter("p_base2cam", [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-    p_base2cam_flat = self.get_parameter("p_base2cam").get_parameter_value().double_array_value
-    self.p_base2cam_ = np.array(p_base2cam_flat, dtype=np.float32).reshape((3,4))
+    self.tf_buffer = Buffer()
+    self.tf_listener = TransformListener(self.tf_buffer, self)
+
+    try:
+      t = self.tf_buffer.lookup_transform(
+        self.to_frame_rel,
+        self.from_frame_rel,
+        rclpy.time.Time()
+      )
+    except TransformException as ex:
+      self.get_logger().info(
+        f'Could not transform {self.to_frame_rel} to {self.from_frame_rel}: {ex}')
+      return
+    self.translation_base2cam = [t.transform.translation.x, t.transform.translation.y, t.transform.translation.z]
+    self.q_base2cam = [t.transform.rotation.w, t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z]
+    self.proj_base2cam = np.eye(4)
+    self.proj_base2cam[:3, :3] = R.from_quat(self.q_base2cam).as_matrix()
+    self.proj_base2cam[:3, 3] = self.translation_base2cam
 
     self.balls_base_publisher = self.create_publisher(
-      SpatialBallArray, "/balls_baselink", 10
+      SpatialBallArray, "balls_baselink", 10
     )
 
     self.balls_cam_subscriber = self.create_subscription(
-      SpatialBallArray, "/balls_cam", self.balls_cam_callback, 10
+      SpatialBallArray, "balls_cam", self.balls_cam_callback, 10
     )
     self.balls_cam_subscriber # prevent unused variable warning
 
