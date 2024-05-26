@@ -1,10 +1,6 @@
 import rclpy
 from rclpy.node import Node
 
-from tf2_ros import TransformException
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
-
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
 
 import numpy as np
@@ -16,28 +12,17 @@ class Cam2BaseTransform(Node):
 
   def __init__(self):
     super().__init__('cam2base_node')
-    self.from_frame_rel = "base_link"
-    self.to_frame_rel = "oakd_rgb_camera_optical_frame"
+    self.declare_parameter("translation", [0.0,0.0,0.0])
+    self.declare_parameter("ypr", [0.0,0.0,0.0])
 
-    self.tf_buffer = Buffer()
-    self.tf_listener = TransformListener(self.tf_buffer, self)
+    self.translation_base2cam = self.get_parameter("translation").get_parameter_value().double_array_value
+    self.ypr_base2cam = self.get_parameter("ypr").get_parameter_value().double_array_value
 
-    try:
-      t = self.tf_buffer.lookup_transform(
-        self.to_frame_rel,
-        self.from_frame_rel,
-        rclpy.time.Time()
-      )
-    except TransformException as ex:
-      self.get_logger().info(
-        f'Could not transform {self.to_frame_rel} to {self.from_frame_rel}: {ex}')
-      return
-    self.translation_base2cam = [t.transform.translation.x, t.transform.translation.y, t.transform.translation.z]
-    self.q_base2cam = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
     self.proj_base2cam = np.eye(4)
-    self.proj_base2cam[:3, :3] = R.from_quat(self.q_base2cam).as_matrix()
     self.proj_base2cam[:3, 3] = self.translation_base2cam
+    self.proj_base2cam[:3, :3] = R.from_euler("ZYX", self.ypr_base2cam, degrees=True).as_matrix()
 
+    # breakpoint()
     self.balls_base_publisher = self.create_publisher(
       SpatialBallArray, "balls_baselink", 10
     )
@@ -52,6 +37,7 @@ class Cam2BaseTransform(Node):
 
 
   def balls_cam_callback(self, msg: SpatialBallArray):
+    # breakpoint()
     balls_base_msg = SpatialBallArray()
   
     for ball in msg.spatial_balls:
@@ -61,9 +47,11 @@ class Cam2BaseTransform(Node):
 
       ball_cam_xyz = [ball.position.x, ball.position.y, ball.position.z]
       ball_baselink_xyz = self.cam2base(ball_cam_xyz)
+      # ball_baselink_xyz = self.extrapolate(ball_baselink_xyz)
       ball_base_msg.position.x = float(ball_baselink_xyz[0])
       ball_base_msg.position.y = float(ball_baselink_xyz[1])
-      ball_base_msg.position.z = float(ball_baselink_xyz[2])
+      # ball_base_msg.position.z = float(ball_baselink_xyz[2])
+      ball_base_msg.position.z = float(BALL_DIAMETER/2)
 
       balls_base_msg.spatial_balls.append(ball_base_msg)
 
@@ -71,13 +59,24 @@ class Cam2BaseTransform(Node):
     self.balls_base_publisher.publish(self.balls_base_msg)
 
   def cam2base(self, cam_point):
+    # breakpoint()
     cam_point.append(1.0)
     cam_homogeneous_point = np.array(cam_point, dtype=np.float32)
-    base_homogeneous_point = np.dot(self.p_base2cam_, cam_homogeneous_point.reshape((-1,1)))
+    base_homogeneous_point = np.dot(self.proj_base2cam, cam_homogeneous_point.reshape((-1,1)))
 
     # dehomogenize
     base_point = base_homogeneous_point / base_homogeneous_point[3]
-    return base_point[:3]
+    return base_point[:3].ravel()
+  
+  def extrapolate(self, base_point):
+    direction_ratio = {}
+    direction_ratio['x'] = base_point[0] - self.translation_base2cam[0]
+    direction_ratio['y'] = base_point[1] - self.translation_base2cam[1]
+    direction_ratio['z'] = base_point[2] - self.translation_base2cam[2]
+
+    x_extrapolated = ((BALL_DIAMETER/2) - self.translation_base2cam[2]) * (direction_ratio['x']/direction_ratio['z']) + self.translation_base2cam[0]
+    y_extrapolated = ((BALL_DIAMETER/2) - self.translation_base2cam[2]) * (direction_ratio['y']/direction_ratio['z']) + self.translation_base2cam[1]
+    return [x_extrapolated, y_extrapolated, BALL_DIAMETER/2]
 
 def main(args=None):
   rclpy.init(args=args)
