@@ -14,6 +14,7 @@ from launch.actions import DeclareLaunchArgument
 def generate_launch_description():
   namespace = 'oak'
 
+  tracker_yaml_path = '/home/apil/main_ws/src/yolov8_ros/yolov8_ros/config/custom_tracker.yaml'
   input_image_topic = 'rgb/rect'
   depth_image_topic = 'stereo/depth/raw'
   model = 'oakd_nano.pt'
@@ -41,9 +42,11 @@ def generate_launch_description():
     launch_arguments={
       'namespace': '',                    # By default, the namespace is set to 'yolo'
       'input_image_topic': input_image_topic,
-      'model': model
+      'model': model,
+      'tracker': tracker_yaml_path
     }.items()
     )
+  # breakpoint()
   yolov8_bringup = GroupAction(
     actions=[
       PushRosNamespace(namespace),
