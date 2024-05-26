@@ -72,7 +72,7 @@ class Base2MapCoordinateTransform(Node):
 
     # dehomogenize
     map_point = map_point_homogeneous / map_point_homogeneous[3]
-    return map_point[:3]
+    return map_point[:3].ravel()
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     """Updates the pose of baselink w.r.t. map"""
