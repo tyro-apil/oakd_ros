@@ -71,17 +71,17 @@ class GoalPose(Node):
     self.add_on_set_parameters_callback(self.params_set_callback)
     
     # Baselink pose w.r.t. map
-    self.baselink_translation = np.ones(3, dtype=np.float32)
-    self.baselink_quaternion = np.ones(4, dtype=np.float32)
-    self.projection_map2base = np.hstack((R.from_quat(self.baselink_quaternion).as_matrix(), self.baselink_translation.reshape((-1,1))))
-    self.projection_map2base = np.vstack((self.projection_map2base, [0.0, 0.0, 0.0, 1.0]))
+    self.baselink_translation = None
+    self.baselink_quaternion = None
+    self.projection_map2base = None 
+    self.projection_map2base = None
 
     self.goalpose_map = PoseStamped()
     ### 
     self.max_xy_limit_ = [3.0, 3.0]        # Ignore detections farther than this distance w.r.t. map_frame
     ###
-    self.X_OFFSET = -0.525                  # Shifting to align intake with ball
-    self.Y_OFFSET = 0.175
+    self.X_OFFSET = -0.50                  # Shifting to align intake with ball
+    self.Y_OFFSET = 0.20
     
     self.tracked_id = None
     self.is_ball_tracked = Bool()
@@ -107,43 +107,44 @@ class GoalPose(Node):
 
   def baselink_pose_callback(self, msg: Odometry):
     self.baselink_translation = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z])
-    self.baselink_quaternion = np.array( msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
+    self.baselink_quaternion = np.array([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
     self.projection_map2base = np.hstack((R.from_quat(self.baselink_quaternion).as_matrix(), self.baselink_translation.reshape((-1,1))))
     self.projection_map2base = np.vstack((self.projection_map2base, [0.0, 0.0, 0.0, 1.0]))
 
   def data_received_cb(self, Balls_msg: SpatialBallArray):
-    self.get_logger().info(f"Number of deteted balls: {len(Balls_msg.spatial_balls)}")
-    team_colored_balls = self.get_team_colored_balls(Balls_msg.spatial_balls)
-    self.get_logger().info(f"Number of team colored balls: {len(team_colored_balls)}")
-    
-    if len(team_colored_balls)>0:
-      self.target_ball_location = []
+    if self.baselink_translation is not None: 
+      self.get_logger().info(f"Number of deteted balls: {len(Balls_msg.spatial_balls)}")
+      team_colored_balls = self.get_team_colored_balls(Balls_msg.spatial_balls)
+      self.get_logger().info(f"Number of team colored balls: {len(team_colored_balls)}")
       
-      # Assume tracked ball is lost
-      prevBall_lost=True
-      target_index=None
-      
-      # Check if tracked ball is still in view
-      if self.tracked_id is not None:
+      if len(team_colored_balls)>0:
+        self.target_ball_location = []
         
-        for i, ball in enumerate(team_colored_balls):
-          if self.tracked_id == int(ball.tracker_id):
-            prevBall_lost=False
-            target_index=i
-            break
-      
-      # If tracked ball is lost, track the nearest ball
-      if prevBall_lost:
-        target_index = self.get_min_distance_index(team_colored_balls)
-        self.tracked_id = int(team_colored_balls[target_index].tracker_id)
+        # Assume tracked ball is lost
+        prevBall_lost=True
+        target_index=None
         
-      target_ball_location = [team_colored_balls[target_index].position.x , (team_colored_balls[target_index].position.y)]
-      goalPose_map = self.get_goalPose_map(target_ball_location)
-      self.set_goalPose(goalPose_map)
-      self.publish_goalPose()
-      self.is_ball_tracked.data = True   
-    else:
-      self.is_ball_tracked.data = False
+        # Check if tracked ball is still in view
+        if self.tracked_id is not None:
+          
+          for i, ball in enumerate(team_colored_balls):
+            if self.tracked_id == int(ball.tracker_id):
+              prevBall_lost=False
+              target_index=i
+              break
+        
+        # If tracked ball is lost, track the nearest ball
+        if prevBall_lost:
+          target_index = self.get_min_distance_index(team_colored_balls)
+          self.tracked_id = int(team_colored_balls[target_index].tracker_id)
+          
+        target_ball_location = [team_colored_balls[target_index].position.x , (team_colored_balls[target_index].position.y)]
+        goalPose_map = self.get_goalPose_map(target_ball_location)
+        self.set_goalPose(goalPose_map)
+        self.publish_goalPose()
+        self.is_ball_tracked.data = True   
+      else:
+        self.is_ball_tracked.data = False
   
   def get_team_colored_balls(self, balls):
     new_list = list(filter(lambda ball: 
@@ -181,7 +182,7 @@ class GoalPose(Node):
     clamped_target_map = self.clamp_target(target_map)
 
     yaw = self.get_goalPose_yaw(target_ball_location)
-
+    # breakpoint()
     goalpose_map.pose.position.x = float(clamped_target_map[0])
     goalpose_map.pose.position.y = float(clamped_target_map[1])
     goalpose_map.pose.position.z = float(clamped_target_map[2])
@@ -206,13 +207,24 @@ class GoalPose(Node):
 
   def get_goalPose_yaw(self, target_ball_location):
     # return 0.0
+    # breakpoint()
     yaw= atan2(target_ball_location[1]-self.baselink_translation[1], target_ball_location[0]-self.baselink_translation[0])
     orientation_vec = [target_ball_location[0]-self.baselink_translation[0], target_ball_location[1]-self.baselink_translation[1]]
     vec_quadrant = self.identify_quadrant(x=orientation_vec[0], y=orientation_vec[1])
+    
     if vec_quadrant == Quadrant.FIRST or vec_quadrant == Quadrant.FOURTH:
       yaw = yaw
     else:
       yaw = yaw + pi
+
+    # if yaw > -45 and yaw<45:
+    #   yaw = 0.0
+    # elif yaw > 45 and yaw<135:
+    #   yaw = 90.0
+    # elif yaw > 135 or yaw<-135:
+    #   yaw = 180.0
+    # elif yaw > -135 and yaw<-45:
+    #   yaw = -90.0
     return yaw
 
 
