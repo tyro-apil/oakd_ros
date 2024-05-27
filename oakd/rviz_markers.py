@@ -29,6 +29,13 @@ class MarkerBroadcaster(Node):
   def __init__(self):
     super().__init__('marker_node')
 
+    self.topic_sub_ = 'balls_map'
+    self.frame_ref_ = 'map'
+    # self.topic_sub_ = 'balls_cam'
+    # self.frame_ref_ = 'oakd_rgb_camera_optical_frame'
+    # self.topic_sub_ = 'balls_baselink'
+    # self.frame_ref_ = 'base_link'
+
     self.declare_parameter("team_color", "red")
     self.team_color = self.get_parameter("team_color").get_parameter_value().string_value
 
@@ -36,7 +43,7 @@ class MarkerBroadcaster(Node):
     
     self.balls_location_subscriber = self.create_subscription(
       SpatialBallArray,
-      'balls_map',
+      self.topic_sub_,
       self.location_received_callback,
       10)
     self.marker_publisher = self.create_publisher(
@@ -60,7 +67,7 @@ class MarkerBroadcaster(Node):
 
   def create_ball_marker(self, ball: MarkerData):
     marker = Marker()
-    marker.header.frame_id = "map"
+    marker.header.frame_id = self.frame_ref_
 
     marker.ns = "oak_detections"
     marker.id = int(ball.tracker_id)
