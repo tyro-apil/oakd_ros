@@ -80,7 +80,7 @@ class GoalPose(Node):
     ### 
     self.max_xy_limit_ = [3.0, 3.0]        # Ignore detections farther than this distance w.r.t. map_frame
     ###
-    self.X_OFFSET = -0.50                  # Shifting to align intake with ball
+    self.X_OFFSET = -0.65                  # Shifting to align intake with ball
     self.Y_OFFSET = 0.20
     
     self.tracked_id = None
