@@ -12,7 +12,7 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
 
 from typing import List, Tuple
-from math import sqrt, atan2, pi
+from math import sqrt, atan2, pi, cos, sin
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from enum import Enum
@@ -80,8 +80,8 @@ class GoalPose(Node):
     ### 
     self.max_xy_limit_ = [3.0, 3.0]        # Ignore detections farther than this distance w.r.t. map_frame
     ###
-    self.X_OFFSET = -0.65                  # Shifting to align intake with ball
-    self.Y_OFFSET = 0.20
+    self.x_offset_baselink_ = 0.60                  # Shifting to align intake with ball
+    self.y_offset_baselink_ = 0.15
     
     self.tracked_id = None
     self.is_ball_tracked = Bool()
@@ -112,39 +112,38 @@ class GoalPose(Node):
     self.projection_map2base = np.vstack((self.projection_map2base, [0.0, 0.0, 0.0, 1.0]))
 
   def data_received_cb(self, Balls_msg: SpatialBallArray):
-    if self.baselink_translation is not None: 
-      self.get_logger().info(f"Number of deteted balls: {len(Balls_msg.spatial_balls)}")
-      team_colored_balls = self.get_team_colored_balls(Balls_msg.spatial_balls)
-      self.get_logger().info(f"Number of team colored balls: {len(team_colored_balls)}")
+    self.get_logger().info(f"Number of deteted balls: {len(Balls_msg.spatial_balls)}")
+    team_colored_balls = self.get_team_colored_balls(Balls_msg.spatial_balls)
+    self.get_logger().info(f"Number of team colored balls: {len(team_colored_balls)}")
+    
+    if len(team_colored_balls)>0:
+      self.target_ball_location = []
       
-      if len(team_colored_balls)>0:
-        self.target_ball_location = []
+      # Assume tracked ball is lost
+      prevBall_lost=True
+      target_index=None
+      
+      # Check if tracked ball is still in view
+      if self.tracked_id is not None:
         
-        # Assume tracked ball is lost
-        prevBall_lost=True
-        target_index=None
+        for i, ball in enumerate(team_colored_balls):
+          if self.tracked_id == int(ball.tracker_id):
+            prevBall_lost=False
+            target_index=i
+            break
+      
+      # If tracked ball is lost, track the nearest ball
+      if prevBall_lost:
+        target_index = self.get_min_distance_index(team_colored_balls)
+        self.tracked_id = int(team_colored_balls[target_index].tracker_id)
         
-        # Check if tracked ball is still in view
-        if self.tracked_id is not None:
-          
-          for i, ball in enumerate(team_colored_balls):
-            if self.tracked_id == int(ball.tracker_id):
-              prevBall_lost=False
-              target_index=i
-              break
-        
-        # If tracked ball is lost, track the nearest ball
-        if prevBall_lost:
-          target_index = self.get_min_distance_index(team_colored_balls)
-          self.tracked_id = int(team_colored_balls[target_index].tracker_id)
-          
-        target_ball_location = [team_colored_balls[target_index].position.x , (team_colored_balls[target_index].position.y)]
-        goalPose_map = self.get_goalPose_map(target_ball_location)
-        self.set_goalPose(goalPose_map)
-        self.publish_goalPose()
-        self.is_ball_tracked.data = True   
-      else:
-        self.is_ball_tracked.data = False
+      target_ball_location = [team_colored_balls[target_index].position.x , (team_colored_balls[target_index].position.y)]
+      goalPose_map = self.get_goalPose_map(target_ball_location)
+      self.set_goalPose(goalPose_map)
+      self.publish_goalPose()
+      self.is_ball_tracked.data = True   
+    else:
+      self.is_ball_tracked.data = False
   
   def get_team_colored_balls(self, balls):
     new_list = list(filter(lambda ball: 
@@ -170,19 +169,13 @@ class GoalPose(Node):
     goalpose_map = PoseStamped()
     goalpose_map.header.stamp = self.get_clock().now().to_msg()
     goalpose_map.header.frame_id = "map"
-    
-    # breakpoint()
-    baselink_point = self.map2base([target_ball_location[0], target_ball_location[1], 0.0])
-    target_x_baselink = baselink_point[0] + self.X_OFFSET
-    target_y_baselink = baselink_point[1] + self.Y_OFFSET
-
-    target_map = self.base2map([target_x_baselink, target_y_baselink, 0.0])
-    target_map[0] += self.get_x_offset(target_ball_location)
-    target_map[1] += self.get_y_offset(target_ball_location)
-    clamped_target_map = self.clamp_target(target_map)
 
     yaw = self.get_goalPose_yaw(target_ball_location)
-    # breakpoint()
+    target_map = [0.0, 0.0, 0.0]
+    target_map[0] = target_ball_location[0] + (-self.x_offset_baselink_ * cos(yaw) - self.y_offset_baselink_ * sin(yaw))
+    target_map[1] = target_ball_location[1] + (-self.x_offset_baselink_ * sin(yaw) + self.y_offset_baselink_ * cos(yaw))
+    clamped_target_map = self.clamp_target(target_map)
+
     goalpose_map.pose.position.x = float(clamped_target_map[0])
     goalpose_map.pose.position.y = float(clamped_target_map[1])
     goalpose_map.pose.position.z = float(clamped_target_map[2])
@@ -195,23 +188,12 @@ class GoalPose(Node):
 
     return goalpose_map
 
-  def base2map(self, baselink_point):
-    baselink_point.append(1.0)
-    # breakpoint()
-    baselink_homogeneous_point = np.array(baselink_point, dtype=np.float32)
-    map_point_homogeneous = np.dot(self.projection_map2base, baselink_homogeneous_point.reshape((-1,1)))
-
-    # dehomogenize
-    map_point = map_point_homogeneous / map_point_homogeneous[3]
-    return map_point[:3].ravel()
-
   def get_goalPose_yaw(self, target_ball_location):
     # return 0.0
-    # breakpoint()
-    yaw= atan2(target_ball_location[1]-self.baselink_translation[1], target_ball_location[0]-self.baselink_translation[0])
-    orientation_vec = [target_ball_location[0]-self.baselink_translation[0], target_ball_location[1]-self.baselink_translation[1]]
-    vec_quadrant = self.identify_quadrant(x=orientation_vec[0], y=orientation_vec[1])
+    yaw= atan2(target_ball_location[1], target_ball_location[0])
+    vec_quadrant = self.identify_quadrant(x=target_ball_location[0], y=target_ball_location[1])
     
+
     if vec_quadrant == Quadrant.FIRST or vec_quadrant == Quadrant.FOURTH:
       yaw = yaw
     else:
@@ -227,7 +209,6 @@ class GoalPose(Node):
     #   yaw = -90.0
     return yaw
 
-
   def set_goalPose(self, goalPose_map):
     """Set goalPose as given goalPose"""
     self.goalPose_map = goalPose_map
@@ -241,13 +222,6 @@ class GoalPose(Node):
       return Quadrant.THIRD
     elif x>=0 and y<=0:
       return Quadrant.FOURTH
-
-  def map2base(self, map_point):
-    map_point.append(1.0)
-    map_homogeneous_point = np.array(map_point, dtype=np.float32)
-    baselink_point_homogeneous = np.dot(np.linalg.inv(self.projection_map2base), map_homogeneous_point.reshape((-1,1)))
-    baselink_point = baselink_point_homogeneous / baselink_point_homogeneous[3]
-    return baselink_point[:3].ravel()
 
   def clamp_target(self, target_map):
     clampped_target = target_map
@@ -269,6 +243,22 @@ class GoalPose(Node):
   def get_y_offset(self, target_ball_location):
     return 0.00
   
+  # def map2base(self, map_point):
+  #   map_point.append(1.0)
+  #   map_homogeneous_point = np.array(map_point, dtype=np.float32)
+  #   baselink_point_homogeneous = np.dot(np.linalg.inv(self.projection_map2base), map_homogeneous_point.reshape((-1,1)))
+  #   baselink_point = baselink_point_homogeneous / baselink_point_homogeneous[3]
+  #   return baselink_point[:3].ravel()
+
+  # def base2map(self, baselink_point):
+  #   baselink_point.append(1.0)
+  #   # breakpoint()
+  #   baselink_homogeneous_point = np.array(baselink_point, dtype=np.float32)
+  #   map_point_homogeneous = np.dot(self.projection_map2base, baselink_homogeneous_point.reshape((-1,1)))
+
+  #   # dehomogenize
+  #   map_point = map_point_homogeneous / map_point_homogeneous[3]
+  #   return map_point[:3].ravel()
   
 def main(args=None):
   rclpy.init(args=args)
