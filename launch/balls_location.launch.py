@@ -13,6 +13,12 @@ def generate_launch_description():
   #
   # ARGS
   #
+  pose_topic = LaunchConfiguration("pose_topic")
+  pose_topic_cmd = DeclareLaunchArgument(
+      "pose_topic",
+      default_value="odometry/filtered",
+      description="Name of the pose topic of map2base transform")
+  
   depth_image_topic = LaunchConfiguration("depth_image_topic")
   depth_image_topic_cmd = DeclareLaunchArgument(
       "depth_image_topic",
@@ -58,12 +64,14 @@ def generate_launch_description():
   base2map_node_cmd = Node(
     package='oakd',
     executable='base2map_node',
-    name='base2map_node'
+    name='base2map_node',
+    remappings=[("odometry/filtered", pose_topic)]
   )
 
   
   ld = LaunchDescription()
   
+  ld.add_action(pose_topic_cmd)
   ld.add_action(depth_image_topic_cmd)
 
   ld.add_action(spatial_node_cmd)

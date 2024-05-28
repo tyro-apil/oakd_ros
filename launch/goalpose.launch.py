@@ -13,6 +13,12 @@ def generate_launch_description():
   #
   # ARGS
   #
+  pose_topic = LaunchConfiguration("pose_topic")
+  pose_topic_cmd = DeclareLaunchArgument(
+      "pose_topic",
+      default_value="odometry/filtered",
+      description="Name of the pose topic of map2base transform")
+  
   goalpose_config = os.path.join(
     get_package_share_directory('oakd'),
     'config',
@@ -26,10 +32,13 @@ def generate_launch_description():
     package='oakd',
     executable='goalpose_node',
     name='goalpose_node',
-    parameters=[goalpose_config]
+    parameters=[goalpose_config],
+    remappings=[("odometry/filtered", pose_topic)]
   )
   
   ld = LaunchDescription()
   
+  ld.add_action(pose_topic_cmd)
+
   ld.add_action(goalpose_node_cmd)
   return ld

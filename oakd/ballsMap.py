@@ -13,6 +13,10 @@ class Base2MapCoordinateTransform(Node):
 
   def __init__(self):
     super().__init__('base2map_node')
+
+    self.declare_parameter("pose_topic", "odometry/filtered")
+    pose_topic = self.get_parameter("pose_topic").get_parameter_value().string_value
+
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(
       SpatialBallArray, "balls_map", 10
@@ -25,7 +29,7 @@ class Base2MapCoordinateTransform(Node):
     
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
-      "/freewheel/global",
+      pose_topic,
       self.baselink_pose_callback,
       10
     )

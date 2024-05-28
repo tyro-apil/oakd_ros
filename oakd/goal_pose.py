@@ -36,6 +36,10 @@ class GoalPose(Node):
     
     self.create_timer(0.02, self.publish_track_state)
 
+    self.declare_parameter("pose_topic", "odometry/filtered")
+    pose_topic = self.get_parameter("pose_topic").get_parameter_value().string_value
+
+
     self.goal_pose_publisher = self.create_publisher(
       PoseStamped,
       'ball_pose_topic',
@@ -49,7 +53,7 @@ class GoalPose(Node):
     
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
-      "/freewheel/global",
+      pose_topic,
       self.baselink_pose_callback,
       10
     )
@@ -192,7 +196,6 @@ class GoalPose(Node):
     # return 0.0
     yaw= atan2(target_ball_location[1], target_ball_location[0])
     vec_quadrant = self.identify_quadrant(x=target_ball_location[0], y=target_ball_location[1])
-    
 
     if vec_quadrant == Quadrant.FIRST or vec_quadrant == Quadrant.FOURTH:
       yaw = yaw

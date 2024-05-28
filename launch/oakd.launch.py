@@ -18,6 +18,7 @@ def generate_launch_description():
   input_image_topic = 'rgb/rect'
   depth_image_topic = 'stereo/depth/raw'
   model = 'oakd_nano.pt'
+  baselink_pose_topic = 'odometry/filtered'
   
   cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
@@ -28,12 +29,12 @@ def generate_launch_description():
       'depth_image_topic': depth_image_topic
     }.items()
     )
-  cam_driver = GroupAction(
-    actions=[
-      PushRosNamespace(namespace),
-      cam_driver,
-    ]
-   )
+  # cam_driver = GroupAction(
+  #   actions=[
+  #     PushRosNamespace(namespace),
+  #     cam_driver,
+  #   ]
+  #  )
   
   yolov8_bringup = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
@@ -47,49 +48,53 @@ def generate_launch_description():
     }.items()
     )
   # breakpoint()
-  yolov8_bringup = GroupAction(
-    actions=[
-      PushRosNamespace(namespace),
-      yolov8_bringup,
-    ]
-   )
+  # yolov8_bringup = GroupAction(
+  #   actions=[
+  #     PushRosNamespace(namespace),
+  #     yolov8_bringup,
+  #   ]
+  #  )
   
   ball_location = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('oakd'), 'launch'),
       '/balls_location.launch.py']),
-    launch_arguments={'depth_image_topic': depth_image_topic}.items()
+    launch_arguments={
+      'depth_image_topic': depth_image_topic,
+      'pose_topic': baselink_pose_topic,
+    }.items()
     )
-  ball_location = GroupAction(
-    actions=[
-      PushRosNamespace(namespace),
-      ball_location,
-    ]
-  )
+  # ball_location = GroupAction(
+  #   actions=[
+  #     PushRosNamespace(namespace),
+  #     ball_location,
+  #   ]
+  # )
 
   goalpose = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('oakd'), 'launch'),
-      '/goalpose.launch.py'])
+      '/goalpose.launch.py']),
+    launch_arguments={'pose_topic': baselink_pose_topic}.items()
     )
-  goalpose = GroupAction(
-    actions=[
-      PushRosNamespace(namespace),
-      goalpose,
-    ]
-  )
+  # goalpose = GroupAction(
+  #   actions=[
+  #     PushRosNamespace(namespace),
+  #     goalpose,
+  #   ]
+  # )
 
   transforms = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('oakd'), 'launch'),
       '/transforms.launch.py'])
     )
-  transforms = GroupAction(
-    actions=[
-      PushRosNamespace(namespace),
-      transforms,
-    ]
-  )
+  # transforms = GroupAction(
+  #   actions=[
+  #     PushRosNamespace(namespace),
+  #     transforms,
+  #   ]
+  # )
 
   return LaunchDescription([
     transforms,
