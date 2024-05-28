@@ -32,9 +32,15 @@ def generate_launch_description():
     name='cam_optical2cam_ros_tf'
   )
   
+  base_polygon_node_cmd= Node(
+    package='oakd',
+    executable='base_polygon_node',
+    name='base_polygon_node'
+  )
   ld = LaunchDescription()
   
   ld.add_action(base2cam_optical_tf_node_cmd)
   ld.add_action(cam_optical2cam_ros_tf_node_cmd)
+  ld.add_action(base_polygon_node_cmd)
 
   return ld
