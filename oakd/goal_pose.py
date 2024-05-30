@@ -26,10 +26,11 @@ class GoalPose(Node):
     super().__init__('goal_pose_node')
     
     self.create_timer(0.02, self.publish_track_state)
-
-    self.declare_parameter("pose_topic", "odometry/filtered")
-    pose_topic = self.get_parameter("pose_topic").get_parameter_value().string_value
-
+    # x, y, x, y
+    self.declare_parameter("corner_limits", [1.65, 1.55, -1.65, -0.50])   # bottom-left to bottom-right in clock wise
+    self.declare_parameter("team_color", "red")
+    self.declare_parameter("goalpose_limits", [-0.5000, 0.2000, -1.5684, 1.5543])   # xmin, xmax, ymin, ymax
+    self.add_on_set_parameters_callback(self.params_set_callback)
 
     self.goal_pose_publisher = self.create_publisher(
       PoseStamped,
@@ -41,10 +42,9 @@ class GoalPose(Node):
       'is_ball_tracked',
       10
     )
-    
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
-      pose_topic,
+      "odometry/filtered",
       self.baselink_pose_callback,
       10
     )
@@ -57,17 +57,12 @@ class GoalPose(Node):
     )
     self.balls_baselink_subscriber  # prevent unused variable warning
 
-    self.declare_parameter("team_color", "red")
+    self.corner_limits = self.get_parameter("corner_limits").get_parameter_value().double_array_value
     self.team_color = self.get_parameter("team_color").get_parameter_value().string_value
-
-    self.declare_parameter("goalpose_limits", [-0.5000, 0.2000, -1.5684, 1.5543])   # xmin, xmax, ymin, ymax
     self.goalpose_limits = self.get_parameter("goalpose_limits").get_parameter_value().double_array_value 
-
-    self.add_on_set_parameters_callback(self.params_set_callback)
     
     self.translation_map2base = None
     self.quaternion_map2base = None
-
     self.goalpose_map = PoseStamped()
     ### 
     self.max_xy_limit_ = [3.0, 3.0]        # Ignore detections farther than this distance w.r.t. map_frame
