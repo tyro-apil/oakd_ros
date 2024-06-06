@@ -16,7 +16,7 @@ class CameraInfoPublisher(Node):
     self.declare_parameter('k', [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
     self.declare_parameter('p', [761.81488037, 0.0, 646.52478027, 0.0, 0.0, 761.15325928, 361.41662598,0.0, 0.0, 0.0, 1.0, 0.0])
 
-    self.publisher_ = self.create_publisher(CameraInfo, 'camera_info', 10)
+    self.publisher_ = self.create_publisher(CameraInfo, 'rgb/camera_info', 10)
     timer_period = 0.05  # seconds
     self.timer = self.create_timer(timer_period, self.timer_callback)
     self.get_logger().info('CameraInfo publisher node started')

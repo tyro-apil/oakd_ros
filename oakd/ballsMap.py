@@ -31,7 +31,7 @@ class Base2MapCoordinateTransform(Node):
     
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
-      pose_topic,
+      "/odometry/filtered",
       self.baselink_pose_callback,
       qos_profile=qos_profile
     )

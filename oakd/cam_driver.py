@@ -60,8 +60,8 @@ class DepthAICameraHandler(Node):
     self.alpha_ = None
 
     # Create a publisher for the RGB images
-    self.rgb_publisher_ = self.create_publisher(Image, 'rgb/raw', 10)
-    self.depth_publisher_ = self.create_publisher(Image, 'stereo/depth/raw', 10)
+    self.rgb_publisher_ = self.create_publisher(Image, 'rgb/rect', 10)
+    self.depth_publisher_ = self.create_publisher(Image, 'stereo/depth', 10)
     self.bridge = CvBridge()
 
     # Create pipeline

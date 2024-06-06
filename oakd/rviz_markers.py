@@ -32,7 +32,7 @@ class MarkerBroadcaster(Node):
     self.topic_sub_ = 'balls_map'
     self.frame_ref_ = 'map'
     # self.topic_sub_ = 'balls_cam'
-    # self.frame_ref_ = 'oakd_rgb_camera_optical_frame'
+    # self.frame_ref_ = 'oak_rgb_camera_link_optical'
     # self.topic_sub_ = 'balls_baselink'
     # self.frame_ref_ = 'base_link'
 
@@ -69,7 +69,7 @@ class MarkerBroadcaster(Node):
     marker = Marker()
     marker.header.frame_id = self.frame_ref_
 
-    marker.ns = "oak_detections"
+    marker.ns = "oak"
     marker.id = int(ball.tracker_id)
     marker.type = Marker.SPHERE
     marker.action = Marker.ADD

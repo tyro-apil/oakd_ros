@@ -39,17 +39,17 @@ class GoalPose(Node):
 
     self.goal_pose_publisher = self.create_publisher(
       PoseStamped,
-      'ball_pose_topic',
+      '/ball_pose_topic',
       10
     )
     self.tracking_state_pub = self.create_publisher(
       Bool,
-      'is_ball_tracked',
+      '/is_ball_tracked',
       10
     )
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
-      "odometry/filtered",
+      "/odometry/filtered",
       self.baselink_pose_callback,
       qos_profile=qos_profile
     )

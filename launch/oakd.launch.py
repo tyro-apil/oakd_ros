@@ -12,13 +12,15 @@ from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
 
 def generate_launch_description():
-  namespace = 'oak'
-
-  tracker_yaml_path = '/home/apil/main_ws/src/yolov8_ros/yolov8_ros/config/custom_tracker.yaml'
+  namespace = '/oak'
   input_image_topic = 'rgb/rect'
-  depth_image_topic = 'stereo/depth/raw'
+  depth_image_topic = 'stereo/depth'
+  tracking_topic = 'tracking'
   model = 'oakd_nano.pt'
-  baselink_pose_topic = 'odometry/filtered'
+  tracker = 'custom_tracker.yaml'
+  baselink_pose_topic = '/odometry/filtered'
+  goalpose_topic = '/ball_pose_topic'
+  ball_tacking_topic = '/is_ball_tracked'
   
   cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
@@ -26,34 +28,22 @@ def generate_launch_description():
       '/driver.launch.py']),
     launch_arguments={
       'rgb_image_topic': input_image_topic,
-      'depth_image_topic': depth_image_topic
+      'depth_image_topic': depth_image_topic,
+      'namespace': namespace
     }.items()
     )
-  # cam_driver = GroupAction(
-  #   actions=[
-  #     PushRosNamespace(namespace),
-  #     cam_driver,
-  #   ]
-  #  )
   
   yolov8_bringup = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('yolov8_bringup'), 'launch'),
       '/yolov8.launch.py']),
     launch_arguments={
-      'namespace': '',                    # By default, the namespace is set to 'yolo'
-      'input_image_topic': input_image_topic,
-      'model': model,
-      'tracker': tracker_yaml_path
+      'namespace': namespace+'/yolo',                    # By default, the namespace is set to 'yolo'
+      'input_image_topic': namespace+'/'+input_image_topic,
+      'model': os.path.join(get_package_share_directory('yolov8_ros'), 'models', f'{model}'),
+      'tracker': os.path.join(get_package_share_directory('yolov8_ros'), 'config', f'{tracker}')
     }.items()
     )
-  # breakpoint()
-  # yolov8_bringup = GroupAction(
-  #   actions=[
-  #     PushRosNamespace(namespace),
-  #     yolov8_bringup,
-  #   ]
-  #  )
   
   ball_location = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
@@ -62,39 +52,31 @@ def generate_launch_description():
     launch_arguments={
       'depth_image_topic': depth_image_topic,
       'pose_topic': baselink_pose_topic,
+      'namespace': namespace,
+      'tracking_topic': namespace+'/yolo/'+tracking_topic
     }.items()
     )
-  # ball_location = GroupAction(
-  #   actions=[
-  #     PushRosNamespace(namespace),
-  #     ball_location,
-  #   ]
-  # )
 
   goalpose = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('oakd'), 'launch'),
       '/goalpose.launch.py']),
-    launch_arguments={'pose_topic': baselink_pose_topic}.items()
+    launch_arguments={
+      'pose_topic': baselink_pose_topic,
+      'namespace': namespace,
+      'goalpose_topic': goalpose_topic,
+      'ball_tracking_topic': ball_tacking_topic
+    }.items()
     )
-  # goalpose = GroupAction(
-  #   actions=[
-  #     PushRosNamespace(namespace),
-  #     goalpose,
-  #   ]
-  # )
 
   transforms = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(
       get_package_share_directory('oakd'), 'launch'),
-      '/transforms.launch.py'])
+      '/transforms.launch.py']),
+    launch_arguments={
+      'namespace': namespace
+    }.items()  
     )
-  # transforms = GroupAction(
-  #   actions=[
-  #     PushRosNamespace(namespace),
-  #     transforms,
-  #   ]
-  # )
 
   return LaunchDescription([
     transforms,
