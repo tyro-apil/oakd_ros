@@ -6,6 +6,8 @@ from oakd_msgs.msg import SpatialBallArray
 import rclpy
 from rclpy.node import Node, Parameter
 from rcl_interfaces.msg import SetParametersResult
+from rclpy.qos import QoSProfile
+from rclpy.qos import QoSReliabilityPolicy
 
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
@@ -25,6 +27,9 @@ class GoalPose(Node):
   def __init__(self):
     super().__init__('goal_pose_node')
     
+    qos_profile = QoSProfile(depth=10)
+    qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
+
     self.create_timer(0.02, self.publish_track_state)
     # x, y, x, y
     self.declare_parameter("corner_limits", [1.65, 1.55, -1.65, -0.50])   # bottom-left to bottom-right in clock wise
@@ -46,7 +51,7 @@ class GoalPose(Node):
       Odometry,
       "odometry/filtered",
       self.baselink_pose_callback,
-      10
+      qos_profile=qos_profile
     )
     self.baselink_pose_subscriber  # prevent unused variable warning
     self.balls_baselink_subscriber = self.create_subscription(

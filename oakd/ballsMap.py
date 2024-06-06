@@ -1,5 +1,7 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile
+from rclpy.qos import QoSReliabilityPolicy
 
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
 from nav_msgs.msg import Odometry
@@ -14,8 +16,8 @@ class Base2MapCoordinateTransform(Node):
   def __init__(self):
     super().__init__('base2map_node')
 
-    self.declare_parameter("pose_topic", "odometry/filtered")
-    pose_topic = self.get_parameter("pose_topic").get_parameter_value().string_value
+    qos_profile = QoSProfile(depth=10)
+    qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(
@@ -31,7 +33,7 @@ class Base2MapCoordinateTransform(Node):
       Odometry,
       pose_topic,
       self.baselink_pose_callback,
-      10
+      qos_profile=qos_profile
     )
     self.baselink_pose_subscriber  # prevent unused variable warning
 
