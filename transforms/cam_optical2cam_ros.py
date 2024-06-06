@@ -23,8 +23,8 @@ class StaticFramePublisher(Node):
     t = TransformStamped()
 
     t.header.stamp = self.get_clock().now().to_msg()
-    t.header.frame_id = 'oakd_rgb_camera_optical_frame'
-    t.child_frame_id = 'oakd_rgb_camera_frame'
+    t.header.frame_id = 'oak_rgb_camera_link_optical'
+    t.child_frame_id = 'oak_rgb_camera_link'
 
     t.transform.translation.x = 0.0
     t.transform.translation.y = 0.0
