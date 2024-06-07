@@ -1,4 +1,4 @@
 /**:
   ros__parameters:
-    goalpose_limits:  [-0.250, 1.000, -1.600, 1.600]
+    goalpose_limits:  [-1.600, 1.600, -0.250, 1.000]
     corner_limits: [1.80, 1.65, -1.80, -0.40]
