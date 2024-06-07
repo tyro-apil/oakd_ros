@@ -77,11 +77,18 @@ def generate_launch_description():
       'namespace': namespace
     }.items()  
     )
+  
+  republish = IncludeLaunchDescription(
+    PythonLaunchDescriptionSource([os.path.join(
+      get_package_share_directory('oakd'), 'launch'),
+      '/republish.launch.py'])
+    )
 
   return LaunchDescription([
     transforms,
     cam_driver,
     yolov8_bringup,
+    republish,
     ball_location,
     goalpose
   ])
