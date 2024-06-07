@@ -198,15 +198,15 @@ class GoalPose(Node):
 
   def clamp_target(self, target_map):
     clampped_target = target_map
-    if target_map[0] < self.goalpose_limits[0]:
-      clampped_target[0] = self.goalpose_limits[0]
-    elif target_map[0] > self.goalpose_limits[1]:
-      clampped_target[0] = self.goalpose_limits[1]
+    # if target_map[0] < self.goalpose_limits[0]:
+    #   clampped_target[0] = self.goalpose_limits[0]
+    # elif target_map[0] > self.goalpose_limits[1]:
+    #   clampped_target[0] = self.goalpose_limits[1]
 
-    if target_map[1] < self.goalpose_limits[2]:
-      clampped_target[1] = self.goalpose_limits[2]
-    elif target_map[1] > self.goalpose_limits[3]:
-      clampped_target[1] = self.goalpose_limits[3]
+    # if target_map[1] < self.goalpose_limits[2]:
+    #   clampped_target[1] = self.goalpose_limits[2]
+    # elif target_map[1] > self.goalpose_limits[3]:
+    #   clampped_target[1] = self.goalpose_limits[3]
 
     return clampped_target
 
