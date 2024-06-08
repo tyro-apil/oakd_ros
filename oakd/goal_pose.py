@@ -12,12 +12,12 @@ from rclpy.qos import QoSReliabilityPolicy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
+from oakd_msgs.msg import SpatialBallArray
 
-from math import sqrt, atan2, cos, sin
+from math import sqrt, atan2, cos, sin, pi
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-
-BALL_DIAMETER = 0.190
+from collections import namedtuple
 
 def get_dist(point) -> float:
   """Calculate euclidean distance between two 2D points"""
@@ -26,6 +26,14 @@ def get_dist(point) -> float:
 class GoalPose(Node): 
   def __init__(self):
     super().__init__('goal_pose_node')
+    self.declare_parameter("ball_diameter", 0.190)
+    self.declare_parameter("ball_xy_limits", [0.0]*4)   
+    self.declare_parameter("absolute_yaw_limits", [0.0]*4)
+    self.declare_parameter("team_color", "red")
+    self.declare_parameter("goalpose_limits", [0.0]*4)   
+    self.add_on_set_parameters_callback(self.params_set_callback)
+
+    XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
     
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
@@ -62,10 +70,14 @@ class GoalPose(Node):
     )
     self.balls_baselink_subscriber  # prevent unused variable warning
 
-    self.corner_limits = self.get_parameter("corner_limits").get_parameter_value().double_array_value
+    self.ball_xy_limits = self.get_parameter("ball_xy_limits").get_parameter_value().double_array_value
+    self.absolute_yaw_limits = self.get_parameter("absolute_yaw_limits").get_parameter_value().double_array_value
     self.team_color = self.get_parameter("team_color").get_parameter_value().string_value
     self.goalpose_limits = self.get_parameter("goalpose_limits").get_parameter_value().double_array_value 
-    
+    self.ball_xy_limits = XY_limits(*self.ball_xy_limits)
+    self.absolute_yaw_limits = XY_limits(*self.absolute_yaw_limits)
+    self.goalpose_limits = XY_limits(*self.goalpose_limits)
+
     self.translation_map2base = None
     self.quaternion_map2base = None
     self.goalpose_map = PoseStamped()
