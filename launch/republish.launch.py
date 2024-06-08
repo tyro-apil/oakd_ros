@@ -17,7 +17,7 @@ def generate_launch_description():
     output='screen',
     remappings=[
         ('in', '/oak/yolo/dbg_image'),
-        ('out', '/oak/yolo/dbg_image/compressed')
+        ('out/compressed', '/oak/yolo/dbg_image/compressed')
     ],
     arguments=['raw', 'compressed']
   )
