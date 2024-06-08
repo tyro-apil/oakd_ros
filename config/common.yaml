@@ -1,0 +1,6 @@
+"""common.yaml - reusable parameters"""
+
+/**:
+  ros__parameters:
+    team_color: "red"
+    ball_diameter: 0.190

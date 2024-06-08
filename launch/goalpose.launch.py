@@ -43,6 +43,12 @@ def generate_launch_description():
     'goalpose_config.yaml'
   )
 
+  common_config = os.path.join(
+    get_package_share_directory('oakd'),
+    'config',
+    'common.yaml'
+  )
+
   #
   # NODES
   #
@@ -51,7 +57,7 @@ def generate_launch_description():
     namespace=namespace, 
     executable='goalpose_node',
     name='goalpose_node',
-    parameters=[goalpose_config],
+    parameters=[goalpose_config, common_config],
     remappings=[
       ("/odometry/filtered", pose_topic),
       ("/ball_pose_topic", goalpose_topic),

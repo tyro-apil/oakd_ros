@@ -19,6 +19,12 @@ def generate_launch_description():
     'config',
     'camera_info.yaml'
   )
+  
+  driver_config = os.path.join(
+    get_package_share_directory('oakd'),
+    'config',
+    'cam_driver.yaml'
+  )
 
   namespace = LaunchConfiguration("namespace")
   namespace_cmd = DeclareLaunchArgument(
@@ -52,6 +58,7 @@ def generate_launch_description():
     executable='driver_node',
     namespace=namespace,
     name='driver_node',
+    parameters=[driver_config],
     remappings=[
       ("rgb/rect", rgb_image_topic),
       ("stereo/depth", depth_image_topic)

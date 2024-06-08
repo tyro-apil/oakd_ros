@@ -4,7 +4,6 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from rclpy.qos import qos_profile_sensor_data
 
 from datetime import timedelta
 import depthai as dai
@@ -52,10 +51,13 @@ def paddedResize(image, target_size, pad_color=(0, 0, 0)):
 class DepthAICameraHandler(Node):
   def __init__(self):
     super().__init__('camera_handler_node')
+    self.declare_parameter("image_width", 1280)
+    self.declare_parameter("image_height", 720)
+    self.declare_parameter("fps", 20)
     # Camera parameters
-    self.fps_ = 20
-    self.rgb_width_ = 1280
-    self.rgb_height_ = 720
+    self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
+    self.__rgb_width = self.get_parameter("image_width").get_parameter_value().integer_value
+    self.__rgb_height = self.get_parameter("image_height").get_parameter_value().integer_value
     self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
     self.alpha_ = None
 
@@ -87,20 +89,20 @@ class DepthAICameraHandler(Node):
     rgbCamSocket = dai.CameraBoardSocket.CAM_A
 
     camRgb.setBoardSocket(rgbCamSocket)
-    camRgb.setPreviewSize(self.rgb_width_, self.rgb_height_)
+    camRgb.setPreviewSize(self.__rgb_width, self.__rgb_height)
     camRgb.Properties.previewKeepAspectRatio = True
-    camRgb.setFps(self.fps_)
+    camRgb.setFps(self.__fps)
 
     left.setResolution(self.mono_resolution_)
     left.setCamera("left")
-    left.setFps(self.fps_)
+    left.setFps(self.__fps)
     right.setResolution(self.mono_resolution_)
     right.setCamera("right")
-    right.setFps(self.fps_)
+    right.setFps(self.__fps)
 
     stereo.setLeftRightCheck(True)
     stereo.setDepthAlign(rgbCamSocket)
-    # stereo.setOutputSize(self.rgb_width_, self.rgb_height_)
+    # stereo.setOutputSize(self.__rgb_width, self.__rgb_height)
     # stereo.setOutputKeepAspectRatio(True)
 
     # Linking
