@@ -123,10 +123,19 @@ class GoalPose(Node):
 
   def data_received_cb(self, Balls_msg: SpatialBallArray):
     if self.translation_map2base is not None:
-      self.get_logger().info(f"Number of deteted balls: {len(Balls_msg.spatial_balls)}")
-      team_colored_balls = self.get_team_colored_balls(Balls_msg.spatial_balls)
-      self.get_logger().info(f"Number of team colored balls: {len(team_colored_balls)}")
-      
+      # Filter balls of team color
+      team_colored_balls = [ball for ball in SpatialBalls_msg.spatial_balls if ball.class_name == self.team_color]
+      # Filter balls within xy limits
+      team_colored_balls = [
+        ball 
+        for ball in team_colored_balls 
+        if ball.position.x > self.ball_xy_limits.xmin 
+        and ball.position.x < self.ball_xy_limits.xmax
+        and ball.position.y > self.ball_xy_limits.ymin
+        and ball.position.y < self.ball_xy_limits.ymax
+      ]
+      self.get_logger().info(f"deteted: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}")
+
       if len(team_colored_balls)>0:
         self.target_ball_location = []
         
@@ -155,15 +164,6 @@ class GoalPose(Node):
         self.is_ball_tracked.data = True   
       else:
         self.is_ball_tracked.data = False
-  
-  def get_team_colored_balls(self, balls):
-    new_list = list(filter(lambda ball: 
-      (ball.class_name == self.team_color) 
-      and (ball.position.x < self.max_xy_limit_[0])  
-      and (ball.position.y < self.max_xy_limit_[1])
-      , balls)
-    )
-    return new_list
       
   def get_min_distance_index(self, balls):
     """Return index of ball at min distance from base_link inside SpatialBallArray msg"""
