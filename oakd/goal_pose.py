@@ -38,19 +38,14 @@ class GoalPose(Node):
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
-    self.create_timer(0.02, self.publish_track_state)
-    # x, y, x, y
-    self.declare_parameter("corner_limits", [1.65, 1.55, -1.65, -0.50])   # bottom-left to bottom-right in clock wise
-    self.declare_parameter("team_color", "red")
-    self.declare_parameter("goalpose_limits", [-0.5000, 0.2000, -1.5684, 1.5543])   # xmin, xmax, ymin, ymax
-    self.add_on_set_parameters_callback(self.params_set_callback)
+    self.create_timer(0.03, self.publish_track_state)
 
-    self.goal_pose_publisher = self.create_publisher(
+    self.goalpose_publisher = self.create_publisher(
       PoseStamped,
       '/ball_pose_topic',
       10
     )
-    self.tracking_state_pub = self.create_publisher(
+    self.tracking_state_publisher = self.create_publisher(
       Bool,
       '/is_ball_tracked',
       10
@@ -65,7 +60,7 @@ class GoalPose(Node):
     self.balls_baselink_subscriber = self.create_subscription(
       SpatialBallArray,
       "balls_map",
-      self.data_received_cb,
+      self.data_received_callback,
       10
     )
     self.balls_baselink_subscriber  # prevent unused variable warning
@@ -81,13 +76,12 @@ class GoalPose(Node):
     self.translation_map2base = None
     self.quaternion_map2base = None
     self.goalpose_map = PoseStamped()
-    ### 
-    self.max_xy_limit_ = [3.0, 3.0]        # Ignore detections farther than this distance w.r.t. map_frame
-    ###
-    self.x_offset_baselink_ = 0.60                  # Shifting to align intake with ball
+
+    self.x_offset_baselink_ = 0.60                  
     self.y_offset_baselink_ = 0.15
-    
+
     self.tracked_id = None
+    self.previous_time = None
     self.is_ball_tracked = Bool()
     
     self.get_logger().info(f"Goalpose node started")  
@@ -103,11 +97,9 @@ class GoalPose(Node):
     return SetParametersResult(successful=success)
   
   def publish_track_state(self):
-    self.tracking_state_pub.publish(self.is_ball_tracked)
-  
-  def publish_goalPose(self):
-    self.goal_pose_publisher.publish(self.goalPose_map)
-    self.get_logger().info(f"\nposition: {self.goalPose_map.pose.position}\n orientation: {self.goalPose_map.pose.orientation}")
+    self.tracking_state_publisher.publish(self.is_ball_tracked)
+    if self.is_ball_tracked.data:
+      self.goalpose_publisher.publish(self.goalpose_map)
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     self.translation_map2base = np.zeros(3)
@@ -121,7 +113,7 @@ class GoalPose(Node):
     self.quaternion_map2base[2] = pose_msg.pose.pose.orientation.z
     self.quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
 
-  def data_received_cb(self, Balls_msg: SpatialBallArray):
+  def data_received_callback(self, SpatialBalls_msg: SpatialBallArray):
     if self.translation_map2base is not None:
       # Filter balls of team color
       team_colored_balls = [ball for ball in SpatialBalls_msg.spatial_balls if ball.class_name == self.team_color]
@@ -145,7 +137,6 @@ class GoalPose(Node):
         
         # Check if tracked ball is still in view
         if self.tracked_id is not None:
-          
           for i, ball in enumerate(team_colored_balls):
             if self.tracked_id == int(ball.tracker_id):
               prevBall_lost=False
@@ -158,9 +149,8 @@ class GoalPose(Node):
           self.tracked_id = int(team_colored_balls[target_index].tracker_id)
           
         target_ball_location = [team_colored_balls[target_index].position.x , (team_colored_balls[target_index].position.y)]
-        goalPose_map = self.get_goalPose_map(target_ball_location)
-        self.set_goalPose(goalPose_map)
-        self.publish_goalPose()
+        goalPose_map = self.get_goalpose_map(target_ball_location)
+        self.set_goalpose_map(goalPose_map)
         self.is_ball_tracked.data = True   
       else:
         self.is_ball_tracked.data = False
@@ -176,13 +166,13 @@ class GoalPose(Node):
         min_distance_index = i
     return min_distance_index
 
-  def get_goalPose_map(self, target_ball_location):
+  def get_goalpose_map(self, target_ball_location):
     goalpose_map = PoseStamped()
     goalpose_map.header.stamp = self.get_clock().now().to_msg()
     goalpose_map.header.frame_id = "map"
-    # breakpoint()
+
     yaw = self.get_goalPose_yaw(target_ball_location)
-    target_map = [0.0, 0.0, 0.0]
+    target_map = [0.0]*3
     target_map[0] = target_ball_location[0] + (-self.x_offset_baselink_ * cos(yaw) - self.y_offset_baselink_ * sin(yaw))
     target_map[1] = target_ball_location[1] + (-self.x_offset_baselink_ * sin(yaw) + self.y_offset_baselink_ * cos(yaw))
     clamped_target_map = self.clamp_target(target_map)
