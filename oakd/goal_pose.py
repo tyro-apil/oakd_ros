@@ -201,24 +201,33 @@ class GoalPose(Node):
 
   def get_goalPose_yaw(self, target_ball_location):
     # return 0.0
+    if target_ball_location[0] < self.absolute_yaw_limits.xmin and target_ball_location[1]>self.absolute_yaw_limits.ymin:
+      return pi
+    elif target_ball_location[0] > self.absolute_yaw_limits.xmin and target_ball_location[1]>self.absolute_yaw_limits.ymax:
+      return pi/2
+    elif target_ball_location[0] > self.absolute_yaw_limits.xmax and target_ball_location[1]<self.absolute_yaw_limits.ymax:
+      return 0.0
+    elif target_ball_location[0] < self.absolute_yaw_limits.xmax and target_ball_location[1]<self.absolute_yaw_limits.ymin:
+      return -pi/2
     base2ball_vec = [target_ball_location[0]-self.translation_map2base[0], target_ball_location[1]-self.translation_map2base[1]]
     yaw= atan2(base2ball_vec[1], base2ball_vec[0])
     return yaw
 
-  def set_goalPose(self, goalPose_map):
-    self.goalPose_map = goalPose_map
+  def set_goalpose_map(self, goalpose_map):
+    self.goalpose_map = goalpose_map
 
   def clamp_target(self, target_map):
     clampped_target = target_map
-    # if target_map[0] < self.goalpose_limits[0]:
-    #   clampped_target[0] = self.goalpose_limits[0]
-    # elif target_map[0] > self.goalpose_limits[1]:
-    #   clampped_target[0] = self.goalpose_limits[1]
 
-    # if target_map[1] < self.goalpose_limits[2]:
-    #   clampped_target[1] = self.goalpose_limits[2]
-    # elif target_map[1] > self.goalpose_limits[3]:
-    #   clampped_target[1] = self.goalpose_limits[3]
+    if target_map[0] < self.goalpose_limits.xmin:
+      clampped_target[0] = self.goalpose_limits.xmin
+    elif target_map[0] > self.goalpose_limits.xmax:
+      clampped_target[0] = self.goalpose_limits.xmax
+    
+    if target_map[1] < self.goalpose_limits.ymin:
+      clampped_target[1] = self.goalpose_limits.ymin
+    elif target_map[1] > self.goalpose_limits.ymax:
+      clampped_target[1] = self.goalpose_limits.ymax
 
     return clampped_target
 
