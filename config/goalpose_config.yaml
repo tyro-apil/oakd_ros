@@ -1,6 +1,12 @@
 /**:
   ros__parameters:
-    goalpose_limits:  [-1.283, -0.500, 1.283, 1.013]
-    ball_xy_limits: [-2.000, -0.800, 2.000, 2.000]
+    goalpose_limits:  [-1.35, -0.60, 1.35, 1.10]
+    ball_xy_limits: [-3.00, -1.00, 3.00, 2.00]
     # ball_xy_limits: [-5.000, -5.000, 5.000, 5.000]
-    absolute_yaw_limits: [-1.283, -0.500, 1.283, 1.013]
+    absolute_yaw_xy_limits: [-1.30, -0.30, 1.30, 1.10]
+    x_intake_offset: 0.60
+    y_intake_offset: 0.15
+    is_ball_range_limits: True
+    is_clamp_goalpose: True
+    is_absolute_yaw_corners: True
+    timer_period_sec: 0.02     # in seconds

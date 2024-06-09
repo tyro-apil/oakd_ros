@@ -28,9 +28,15 @@ class GoalPose(Node):
     super().__init__('goal_pose_node')
     self.declare_parameter("ball_diameter", 0.190)
     self.declare_parameter("ball_xy_limits", [0.0]*4)   
-    self.declare_parameter("absolute_yaw_limits", [0.0]*4)
+    self.declare_parameter("absolute_yaw_xy_limits", [0.0]*4)
     self.declare_parameter("team_color", "red")
     self.declare_parameter("goalpose_limits", [0.0]*4)   
+    self.declare_parameter("x_intake_offset", 0.60)
+    self.declare_parameter("y_intake_offset", 0.15)
+    self.declare_parameter("is_ball_range_limits", True)
+    self.declare_parameter("is_clamp_goalpose", True)
+    self.declare_parameter("is_absolute_yaw_corners", True)
+    self.declare_parameter("timer_period_sec", 0.02)
     self.add_on_set_parameters_callback(self.params_set_callback)
 
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
@@ -38,7 +44,8 @@ class GoalPose(Node):
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
-    self.create_timer(0.03, self.publish_track_state)
+    timer_period_sec = self.get_parameter("timer_period").get_parameter_value().double_value
+    self.create_timer(timer_period_sec, self.publish_track_state)
 
     self.goalpose_publisher = self.create_publisher(
       PoseStamped,
@@ -66,19 +73,22 @@ class GoalPose(Node):
     self.balls_baselink_subscriber  # prevent unused variable warning
 
     self.ball_xy_limits = self.get_parameter("ball_xy_limits").get_parameter_value().double_array_value
-    self.absolute_yaw_limits = self.get_parameter("absolute_yaw_limits").get_parameter_value().double_array_value
+    self.absolute_yaw_xy_limits = self.get_parameter("absolute_yaw_xy_limits").get_parameter_value().double_array_value
     self.team_color = self.get_parameter("team_color").get_parameter_value().string_value
     self.goalpose_limits = self.get_parameter("goalpose_limits").get_parameter_value().double_array_value 
     self.ball_xy_limits = XY_limits(*self.ball_xy_limits)
-    self.absolute_yaw_limits = XY_limits(*self.absolute_yaw_limits)
+    self.absolute_yaw_xy_limits = XY_limits(*self.absolute_yaw_xy_limits)
     self.goalpose_limits = XY_limits(*self.goalpose_limits)
+
+    self.__x_intake_offset = self.get_parameter("x_intake_offset").get_parameter_value().double_value                  
+    self.__y_intake_offset = self.get_parameter("y_intake_offset").get_parameter_value().double_value
+    self.__is_ball_range_limits = self.get_parameter("is_ball_range_limits").get_parameter_value().bool_value
+    self.__is_clamp_goalpose = self.get_parameter("is_clamp_goalpose").get_parameter_value().bool_value
+    self.__is_absolute_yaw_corners = self.get_parameter("is_absolute_yaw_corners").get_parameter_value().bool_value
 
     self.translation_map2base = None
     self.quaternion_map2base = None
     self.goalpose_map = PoseStamped()
-
-    self.x_offset_baselink_ = 0.60                  
-    self.y_offset_baselink_ = 0.15
 
     self.tracked_id = None
     self.previous_time = None
@@ -118,14 +128,15 @@ class GoalPose(Node):
       # Filter balls of team color
       team_colored_balls = [ball for ball in SpatialBalls_msg.spatial_balls if ball.class_name == self.team_color]
       # Filter balls within xy limits
-      team_colored_balls = [
-        ball 
-        for ball in team_colored_balls 
-        if ball.position.x > self.ball_xy_limits.xmin 
-        and ball.position.x < self.ball_xy_limits.xmax
-        and ball.position.y > self.ball_xy_limits.ymin
-        and ball.position.y < self.ball_xy_limits.ymax
-      ]
+      if self.__is_ball_range_limits:
+        team_colored_balls = [
+          ball 
+          for ball in team_colored_balls 
+          if ball.position.x > self.ball_xy_limits.xmin 
+          and ball.position.x < self.ball_xy_limits.xmax
+          and ball.position.y > self.ball_xy_limits.ymin
+          and ball.position.y < self.ball_xy_limits.ymax
+        ]
       self.get_logger().info(f"deteted: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}")
 
       if len(team_colored_balls)>0:
@@ -173,8 +184,8 @@ class GoalPose(Node):
 
     yaw = self.get_goalPose_yaw(target_ball_location)
     target_map = [0.0]*3
-    target_map[0] = target_ball_location[0] + (-self.x_offset_baselink_ * cos(yaw) - self.y_offset_baselink_ * sin(yaw))
-    target_map[1] = target_ball_location[1] + (-self.x_offset_baselink_ * sin(yaw) + self.y_offset_baselink_ * cos(yaw))
+    target_map[0] = target_ball_location[0] + (-self.__x_intake_offset * cos(yaw) - self.__y_intake_offset * sin(yaw))
+    target_map[1] = target_ball_location[1] + (-self.__x_intake_offset * sin(yaw) + self.__y_intake_offset * cos(yaw))
     clamped_target_map = self.clamp_target(target_map)
 
     goalpose_map.pose.position.x = float(clamped_target_map[0])
@@ -190,15 +201,15 @@ class GoalPose(Node):
     return goalpose_map
 
   def get_goalPose_yaw(self, target_ball_location):
-    # return 0.0
-    if target_ball_location[0] < self.absolute_yaw_limits.xmin and target_ball_location[1]>self.absolute_yaw_limits.ymin:
-      return pi
-    elif target_ball_location[0] > self.absolute_yaw_limits.xmin and target_ball_location[1]>self.absolute_yaw_limits.ymax:
-      return pi/2
-    elif target_ball_location[0] > self.absolute_yaw_limits.xmax and target_ball_location[1]<self.absolute_yaw_limits.ymax:
-      return 0.0
-    elif target_ball_location[0] < self.absolute_yaw_limits.xmax and target_ball_location[1]<self.absolute_yaw_limits.ymin:
-      return -pi/2
+    if self.__is_absolute_yaw_corners:
+      if target_ball_location[0] < self.absolute_yaw_xy_limits.xmin and target_ball_location[1]>self.absolute_yaw_xy_limits.ymin:
+        return pi
+      elif target_ball_location[0] > self.absolute_yaw_xy_limits.xmin and target_ball_location[1]>self.absolute_yaw_xy_limits.ymax:
+        return pi/2
+      elif target_ball_location[0] > self.absolute_yaw_xy_limits.xmax and target_ball_location[1]<self.absolute_yaw_xy_limits.ymax:
+        return 0.0
+      elif target_ball_location[0] < self.absolute_yaw_xy_limits.xmax and target_ball_location[1]<self.absolute_yaw_xy_limits.ymin:
+        return -pi/2
     base2ball_vec = [target_ball_location[0]-self.translation_map2base[0], target_ball_location[1]-self.translation_map2base[1]]
     yaw= atan2(base2ball_vec[1], base2ball_vec[0])
     return yaw
@@ -209,23 +220,19 @@ class GoalPose(Node):
   def clamp_target(self, target_map):
     clampped_target = target_map
 
-    if target_map[0] < self.goalpose_limits.xmin:
-      clampped_target[0] = self.goalpose_limits.xmin
-    elif target_map[0] > self.goalpose_limits.xmax:
-      clampped_target[0] = self.goalpose_limits.xmax
-    
-    if target_map[1] < self.goalpose_limits.ymin:
-      clampped_target[1] = self.goalpose_limits.ymin
-    elif target_map[1] > self.goalpose_limits.ymax:
-      clampped_target[1] = self.goalpose_limits.ymax
+    if self.__is_clamp_goalpose:
+      if target_map[0] < self.goalpose_limits.xmin:
+        clampped_target[0] = self.goalpose_limits.xmin
+      elif target_map[0] > self.goalpose_limits.xmax:
+        clampped_target[0] = self.goalpose_limits.xmax
+      
+      if target_map[1] < self.goalpose_limits.ymin:
+        clampped_target[1] = self.goalpose_limits.ymin
+      elif target_map[1] > self.goalpose_limits.ymax:
+        clampped_target[1] = self.goalpose_limits.ymax
 
     return clampped_target
-
-  def get_x_offset(self, target_ball_location):
-    return 0.00
   
-  def get_y_offset(self, target_ball_location):
-    return 0.00
   
 def main(args=None):
   rclpy.init(args=args)
