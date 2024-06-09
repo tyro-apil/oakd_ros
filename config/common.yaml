@@ -1,5 +1,3 @@
-"""common.yaml - reusable parameters"""
-
 /**:
   ros__parameters:
     team_color: "red"
