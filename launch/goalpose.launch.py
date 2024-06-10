@@ -25,17 +25,11 @@ def generate_launch_description():
       default_value="/odometry/filtered",
       description="Name of the pose topic of map2base transform")
   
-  goalpose_topic = LaunchConfiguration("goalpose_topic")
-  goalpose_topic_cmd = DeclareLaunchArgument(
-      "goalpose_topic",
-      default_value="/ball_pose_topic",
-      description="Name of the goal pose topic")
-  
-  ball_tracking_topic = LaunchConfiguration("ball_tracking_topic")
-  ball_tracking_topic_cmd = DeclareLaunchArgument(
-      "ball_tracking_topic",
-      default_value="/is_ball_tracked",
-      description="Name of the ball tracking topic")
+  state_n_goalpose_topic = LaunchConfiguration("state_n_goalpose_topic")
+  state_n_goalpose_topic_cmd = DeclareLaunchArgument(
+      "state_n_goalpose_topic",
+      default_value="/ball_tracking",
+      description="Name of the combined tracking state")
   
   goalpose_config = os.path.join(
     get_package_share_directory('oakd'),
@@ -60,16 +54,14 @@ def generate_launch_description():
     parameters=[goalpose_config, common_config],
     remappings=[
       ("/odometry/filtered", pose_topic),
-      ("/ball_pose_topic", goalpose_topic),
-      ("/is_ball_tracked", ball_tracking_topic)
+      ("/ball_tracking", state_n_goalpose_topic),
       ]
   )
   
   ld = LaunchDescription()
   
   ld.add_action(namespace_cmd)
-  ld.add_action(goalpose_topic_cmd)
-  ld.add_action(ball_tracking_topic_cmd)
+  ld.add_action(state_n_goalpose_topic_cmd)
   ld.add_action(pose_topic_cmd)
 
   ld.add_action(goalpose_node_cmd)

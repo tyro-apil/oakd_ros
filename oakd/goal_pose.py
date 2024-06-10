@@ -13,6 +13,7 @@ from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
 from oakd_msgs.msg import SpatialBallArray
+from oakd_msgs.msg import StatePose
 
 from math import sqrt, atan2, cos, sin, pi
 import numpy as np
@@ -45,16 +46,11 @@ class GoalPose(Node):
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
     timer_period_sec = self.get_parameter("timer_period").get_parameter_value().double_value
-    self.create_timer(timer_period_sec, self.publish_track_state)
+    self.create_timer(timer_period_sec, self.publish_state_n_goalpose)
 
-    self.goalpose_publisher = self.create_publisher(
-      PoseStamped,
-      '/ball_pose_topic',
-      10
-    )
-    self.tracking_state_publisher = self.create_publisher(
-      Bool,
-      '/is_ball_tracked',
+    self.state_n_goalpose_publisher = self.create_publisher(
+      StatePose,
+      '/ball_tracking',
       10
     )
     self.baselink_pose_subscriber = self.create_subscription(
@@ -89,6 +85,7 @@ class GoalPose(Node):
     self.translation_map2base = None
     self.quaternion_map2base = None
     self.goalpose_map = PoseStamped()
+    self.state_n_goalpose = StatePose()
 
     self.tracked_id = None
     self.previous_time = None
@@ -106,10 +103,8 @@ class GoalPose(Node):
     self.get_logger().info(f"team_color: {self.team_color}")
     return SetParametersResult(successful=success)
   
-  def publish_track_state(self):
-    self.tracking_state_publisher.publish(self.is_ball_tracked)
-    if self.is_ball_tracked.data:
-      self.goalpose_publisher.publish(self.goalpose_map)
+  def publish_state_n_goalpose(self):
+    self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     self.translation_map2base = np.zeros(3)
@@ -165,6 +160,9 @@ class GoalPose(Node):
         self.is_ball_tracked.data = True   
       else:
         self.is_ball_tracked.data = False
+      
+      self.state_n_goalpose.is_tracked.data = self.is_ball_tracked.data
+      self.state_n_goalpose.goalpose = self.goalpose_map
       
   def get_min_distance_index(self, balls):
     """Return index of ball at min distance from base_link inside SpatialBallArray msg"""
