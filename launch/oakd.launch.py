@@ -19,7 +19,7 @@ def generate_launch_description():
   model = 'oakd_nano.pt'
   tracker = 'custom_tracker.yaml'
   baselink_pose_topic = '/odometry/filtered'
-  state_n_goalpose_topic = '/ball_tracking'
+  state_n_goalpose_topic = '/ball_tracker'
   
   cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource([os.path.join(

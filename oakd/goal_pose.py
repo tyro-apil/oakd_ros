@@ -45,7 +45,7 @@ class GoalPose(Node):
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
-    timer_period_sec = self.get_parameter("timer_period").get_parameter_value().double_value
+    timer_period_sec = self.get_parameter("timer_period_sec").get_parameter_value().double_value
     self.create_timer(timer_period_sec, self.publish_state_n_goalpose)
 
     self.state_n_goalpose_publisher = self.create_publisher(

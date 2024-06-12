@@ -9,4 +9,4 @@
     is_ball_range_limits: True
     is_clamp_goalpose: True
     is_absolute_yaw_corners: True
-    timer_period_sec: 0.02     # in seconds
+    timer_period_sec: 0.03     # in seconds
