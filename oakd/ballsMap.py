@@ -1,39 +1,34 @@
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile
-from rclpy.qos import QoSReliabilityPolicy
-
-from oakd_msgs.msg import SpatialBall, SpatialBallArray
-from nav_msgs.msg import Odometry
-
 import numpy as np
+import rclpy
+from nav_msgs.msg import Odometry
+from oakd_msgs.msg import SpatialBall, SpatialBallArray
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from scipy.spatial.transform import Rotation as R
 
 BALL_DIAMETER = 0.190
 
-class Base2MapCoordinateTransform(Node):
 
+class Base2MapCoordinateTransform(Node):
   def __init__(self):
-    super().__init__('base2map_node')
+    super().__init__("base2map_node")
 
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
     ## Publisher of ball position data in real world
-    self.balls_map_publisher = self.create_publisher(
-      SpatialBallArray, "balls_map", 10
-    )
+    self.balls_map_publisher = self.create_publisher(SpatialBallArray, "balls_map", 10)
 
     self.balls_baselink_subscriber = self.create_subscription(
       SpatialBallArray, "balls_baselink", self.balls_baselink_cb, 10
     )
-    self.balls_baselink_subscriber # prevent unused variable warning
-    
+    self.balls_baselink_subscriber  # prevent unused variable warning
+
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
       "/odometry/filtered",
       self.baselink_pose_callback,
-      qos_profile=qos_profile
+      qos_profile=qos_profile,
     )
     self.baselink_pose_subscriber  # prevent unused variable warning
 
@@ -43,8 +38,7 @@ class Base2MapCoordinateTransform(Node):
     self.proj_map2base = None
 
     self.balls_map_msg = SpatialBallArray()
-    self.get_logger().info(f"Baselink2map coordinate transformation node started.")
-
+    self.get_logger().info("Baselink2map coordinate transformation node started.")
 
   def balls_baselink_cb(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
@@ -52,7 +46,6 @@ class Base2MapCoordinateTransform(Node):
       balls_map_msg = SpatialBallArray()
       # breakpoint()
       for ball in msg.spatial_balls:
-        
         ball_map_msg = SpatialBall()
         ball_map_msg = ball
 
@@ -72,7 +65,9 @@ class Base2MapCoordinateTransform(Node):
     """Transform the point from base_link frame to map frame"""
     baselink_point.append(1.0)
     baselink_homogeneous_point = np.array(baselink_point, dtype=np.float32)
-    map_point_homogeneous = np.dot(self.proj_map2base, baselink_homogeneous_point.reshape((-1,1)))
+    map_point_homogeneous = np.dot(
+      self.proj_map2base, baselink_homogeneous_point.reshape((-1, 1))
+    )
 
     # dehomogenize
     map_point = map_point_homogeneous / map_point_homogeneous[3]
@@ -92,8 +87,9 @@ class Base2MapCoordinateTransform(Node):
     self.quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
 
     self.proj_map2base = np.eye(4)
-    self.proj_map2base[:3,:3] = R.from_quat(self.quaternion_map2base).as_matrix()
+    self.proj_map2base[:3, :3] = R.from_quat(self.quaternion_map2base).as_matrix()
     self.proj_map2base[:3, 3] = self.translation_map2base
+
 
 def main(args=None):
   rclpy.init(args=args)
@@ -109,5 +105,5 @@ def main(args=None):
   rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   main()

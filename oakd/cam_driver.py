@@ -1,14 +1,15 @@
 """cam_driver.py - Camera driver for the OAK-D camera."""
 
+from datetime import timedelta
+
+import cv2
+import depthai as dai
+import numpy as np
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
 
-from datetime import timedelta
-import depthai as dai
-import cv2
-import numpy as np
 
 def paddedResize(image, target_size, pad_color=(0, 0, 0)):
   h, w = image.shape[:2]
@@ -42,28 +43,33 @@ def paddedResize(image, target_size, pad_color=(0, 0, 0)):
 
   # Place the resized image on the padded image
   if len(image.shape) == 2:  # Grayscale image
-    padded_image[top:top + new_h, left:left + new_w] = resized_image
+    padded_image[top : top + new_h, left : left + new_w] = resized_image
   else:  # Color image
-    padded_image[top:top + new_h, left:left + new_w, :] = resized_image
+    padded_image[top : top + new_h, left : left + new_w, :] = resized_image
 
   return padded_image
 
+
 class DepthAICameraHandler(Node):
   def __init__(self):
-    super().__init__('camera_handler_node')
+    super().__init__("camera_handler_node")
     self.declare_parameter("image_width", 1280)
     self.declare_parameter("image_height", 720)
     self.declare_parameter("fps", 20)
     # Camera parameters
     self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
-    self.__rgb_width = self.get_parameter("image_width").get_parameter_value().integer_value
-    self.__rgb_height = self.get_parameter("image_height").get_parameter_value().integer_value
+    self.__rgb_width = (
+      self.get_parameter("image_width").get_parameter_value().integer_value
+    )
+    self.__rgb_height = (
+      self.get_parameter("image_height").get_parameter_value().integer_value
+    )
     self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
     self.alpha_ = None
 
     # Create a publisher for the RGB images
-    self.rgb_publisher_ = self.create_publisher(Image, 'rgb/rect', 10)
-    self.depth_publisher_ = self.create_publisher(Image, 'stereo/depth', 10)
+    self.rgb_publisher_ = self.create_publisher(Image, "rgb/rect", 10)
+    self.depth_publisher_ = self.create_publisher(Image, "stereo/depth", 10)
     self.bridge = CvBridge()
 
     # Create pipeline
@@ -132,14 +138,22 @@ class DepthAICameraHandler(Node):
       if lensPosition:
         camRgb.initialControl.setManualFocus(lensPosition)
     except:
-      raise Exception('Could not read calibration data')
+      raise Exception("Could not read calibration data")
 
-    self.get_logger().info('Connected cameras: {}'.format(self.device.getConnectedCameraFeatures()))
-    self.get_logger().info('USB speed: {}'.format(self.device.getUsbSpeed().name))
+    self.get_logger().info(
+      "Connected cameras: {}".format(self.device.getConnectedCameraFeatures())
+    )
+    self.get_logger().info("USB speed: {}".format(self.device.getUsbSpeed().name))
     if self.device.getBootloaderVersion() is not None:
-      self.get_logger().info('Bootloader version: {}'.format(self.device.getBootloaderVersion()))
-    self.get_logger().info('Device name: {} Product name: {}'.format(self.device.getDeviceName(), self.device.getProductName()))
-    self.get_logger().info('Driver node started')
+      self.get_logger().info(
+        "Bootloader version: {}".format(self.device.getBootloaderVersion())
+      )
+    self.get_logger().info(
+      "Device name: {} Product name: {}".format(
+        self.device.getDeviceName(), self.device.getProductName()
+      )
+    )
+    self.get_logger().info("Driver node started")
 
     # Output queue will be used to get the frames from the output defined above
     self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
@@ -149,14 +163,18 @@ class DepthAICameraHandler(Node):
     self.timer = self.create_timer(0.05, self.timer_callback)
 
   def timer_callback(self):
-    inRgb = self.qRgb.tryGet()  # Non-blocking call, will return None if no new data has arrived
-    inDepth = self.qDepth.tryGet()  # Non-blocking call, will return None if no new data has arrived
+    inRgb = (
+      self.qRgb.tryGet()
+    )  # Non-blocking call, will return None if no new data has arrived
+    inDepth = (
+      self.qDepth.tryGet()
+    )  # Non-blocking call, will return None if no new data has arrived
 
     if inRgb is not None and inDepth is not None:
       rgb_frame = inRgb.getCvFrame()
       depth_frame = inDepth.getCvFrame()
 
-      #Resize the opencv frames
+      # Resize the opencv frames
       # rgb_frame = cv2.resize(rgb_frame, (1280, 720), interpolation=cv2.INTER_AREA)
       depth_frame = cv2.resize(depth_frame, (1280, 720), interpolation=cv2.INTER_AREA)
       # rgb_frame = paddedResize(rgb_frame, (480, 640))
@@ -164,10 +182,11 @@ class DepthAICameraHandler(Node):
 
       # Convert the frame to a ROS Image message and publish it
       # self.get_logger().info(f'RGB frame shape {rgb_frame.shape} Depth frame shape {depth_frame.shape}')
-      rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(rgb_frame, encoding='bgr8')
-      depthImg_ros_msg = self.bridge.cv2_to_imgmsg(depth_frame, encoding='16UC1')
+      rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(rgb_frame, encoding="bgr8")
+      depthImg_ros_msg = self.bridge.cv2_to_imgmsg(depth_frame, encoding="16UC1")
       self.rgb_publisher_.publish(rgbImg_ros_msg)
       self.depth_publisher_.publish(depthImg_ros_msg)
+
 
 def main(args=None):
   rclpy.init(args=args)
@@ -176,5 +195,6 @@ def main(args=None):
   node.destroy_node()
   rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
   main()
