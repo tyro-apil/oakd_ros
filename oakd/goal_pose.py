@@ -106,7 +106,7 @@ class GoalPose(Node):
     self.previous_time = None
     self.is_ball_tracked = Bool()
 
-    self.get_logger().info(f"Goalpose node started")
+    self.get_logger().info("Goalpose node started")
 
   def params_set_callback(self, params):
     success = False
