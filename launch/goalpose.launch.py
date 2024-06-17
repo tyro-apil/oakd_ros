@@ -55,6 +55,13 @@ def generate_launch_description():
     ],
   )
 
+  target_marker_node_cmd = Node(
+    package="oakd",
+    namespace=namespace,
+    executable="target_marker_node",
+    name="target_marker_node",
+  )
+
   ld = LaunchDescription()
 
   ld.add_action(namespace_cmd)
@@ -62,4 +69,5 @@ def generate_launch_description():
   ld.add_action(pose_topic_cmd)
 
   ld.add_action(goalpose_node_cmd)
+  ld.add_action(target_marker_node_cmd)
   return ld
