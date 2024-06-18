@@ -41,7 +41,6 @@ setup(
       "goalpose_node = oakd.goal_pose:main",
       "cam_optical2cam_ros_tf = transforms.cam_optical2cam_ros:main",
       "base2cam_optical_tf = transforms.base2cam_optical:main",
-      "base_polygon_node = oakd.base_polygon:main",
       "target_marker_node = oakd.target_marker:main",
     ],
   },
