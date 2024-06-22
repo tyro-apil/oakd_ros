@@ -51,6 +51,10 @@ def generate_launch_description():
     get_package_share_directory("oakd"), "config", "spatial_location.yaml"
   )
 
+  rviz_markers_config = os.path.join(
+    get_package_share_directory("oakd"), "config", "rviz_markers.yaml"
+  )
+
   base2cam_config = os.path.join(
     get_package_share_directory("oakd"), "config", "base2cam.yaml"
   )
@@ -68,7 +72,11 @@ def generate_launch_description():
   )
 
   markers_node_cmd = Node(
-    package="oakd", namespace=namespace, executable="markers_node", name="markers_node"
+    package="oakd",
+    namespace=namespace,
+    executable="markers_node",
+    name="markers_node",
+    parameters=[common_config, rviz_markers_config],
   )
 
   cam2base_node_cmd = Node(

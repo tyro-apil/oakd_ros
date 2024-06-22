@@ -13,9 +13,6 @@ from rclpy.duration import Duration
 from rclpy.node import Node, Parameter
 from visualization_msgs.msg import Marker, MarkerArray
 
-# Diameter of size 3 ball in meters
-BALL_DIAMETER = 0.190
-
 
 @dataclass
 class MarkerData:
@@ -29,22 +26,24 @@ class MarkerBroadcaster(Node):
   def __init__(self):
     super().__init__("marker_node")
 
-    self.topic_sub_ = "balls_map"
-    self.frame_ref_ = "map"
-    # self.topic_sub_ = 'balls_cam'
-    # self.frame_ref_ = 'oak_rgb_camera_link_optical'
-    # self.topic_sub_ = 'balls_baselink'
-    # self.frame_ref_ = 'base_link'
+    self.declare_parameter("team_color", "blue")
+    self.declare_parameter("ball_diameter", 0.190)
+    self.declare_parameter("balls_topic_sub", "balls_map")
+    self.declare_parameter("balls_frame_ref", "map")
 
-    self.declare_parameter("team_color", "red")
     self.team_color = (
       self.get_parameter("team_color").get_parameter_value().string_value
     )
+    self.ball_diameter = (
+      self.get_parameter("ball_diameter").get_parameter_value().double_value
+    )
+    self.topic_sub = self.get_parameter("topic_sub").get_parameter_value().string_value
+    self.frame_ref = self.get_parameter("frame_ref").get_parameter_value().string_value
 
     self.add_on_set_parameters_callback(self.params_cb)
 
     self.balls_location_subscriber = self.create_subscription(
-      SpatialBallArray, self.topic_sub_, self.location_received_callback, 10
+      SpatialBallArray, self.topic_sub, self.location_received_callback, 10
     )
     self.marker_publisher = self.create_publisher(MarkerArray, "balls_detected", 10)
 
@@ -64,7 +63,7 @@ class MarkerBroadcaster(Node):
 
   def create_ball_marker(self, ball: MarkerData):
     marker = Marker()
-    marker.header.frame_id = self.frame_ref_
+    marker.header.frame_id = self.frame_ref
 
     marker.ns = "oak"
     marker.id = int(ball.tracker_id)
@@ -81,9 +80,9 @@ class MarkerBroadcaster(Node):
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
 
-    marker.scale.x = BALL_DIAMETER
-    marker.scale.y = BALL_DIAMETER
-    marker.scale.z = BALL_DIAMETER
+    marker.scale.x = self.BALL_DIAMETER
+    marker.scale.y = self.BALL_DIAMETER
+    marker.scale.z = self.BALL_DIAMETER
 
     marker_rgb = {"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.8}
     match ball.class_id:

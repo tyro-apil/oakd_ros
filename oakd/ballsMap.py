@@ -6,8 +6,6 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from scipy.spatial.transform import Rotation as R
 
-BALL_DIAMETER = 0.190
-
 
 class Base2MapCoordinateTransform(Node):
   def __init__(self):
