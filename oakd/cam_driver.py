@@ -53,8 +53,8 @@ def paddedResize(image, target_size, pad_color=(0, 0, 0)):
 class DepthAICameraHandler(Node):
   def __init__(self):
     super().__init__("camera_handler_node")
-    self.declare_parameter("image_width", 1280)
-    self.declare_parameter("image_height", 720)
+    self.declare_parameter("width", 1280)
+    self.declare_parameter("height", 720)
     self.declare_parameter("fps", 20)
     # Camera parameters
     self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
