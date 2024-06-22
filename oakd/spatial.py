@@ -7,15 +7,16 @@ import rclpy
 from cv_bridge import CvBridge
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
 from rclpy.node import Node
-from sensor_msgs.msg import CameraInfo, Image
+from sensor_msgs.msg import Image
 from yolov8_msgs.msg import BoundingBox2D, DetectionArray
 
 
 class HostSpatialsCalc:
-  def __init__(self):
+  def __init__(self, neighbourhood_pixels=4):
     # Values
     self.THRESH_LOW = 200  # 20 cm
     self.THRESH_HIGH = 30000  # 30 m
+    self.DELTA = neighbourhood_pixels
 
   def setLowerThreshold(self, threshold_low):
     self.THRESH_LOW = threshold_low
@@ -34,7 +35,6 @@ class HostSpatialsCalc:
     if len(roi) != 2:
       raise ValueError("You have to pass either ROI (4 values) or point (2 values)!")
     # Limit the point so ROI won't be outside the frame
-    self.DELTA = 4  # Take 4x4 depth pixels around point for depth averaging
     x = min(max(roi[0], self.DELTA), frame.shape[1] - self.DELTA)
     y = min(max(roi[1], self.DELTA), frame.shape[0] - self.DELTA)
     return (x - self.DELTA, y - self.DELTA, x + self.DELTA, y + self.DELTA)
@@ -87,29 +87,29 @@ def xywh2xyxy(xywh: List) -> List:
   return xyxy
 
 
-class CameraInfo:
+class CameraInfoManager:
   """Camera info class to calculate spatial location of the object in the real world"""
 
   def __init__(self, fx, fy, cx, cy):
-    self.fx_ = fx
-    self.fy_ = fy
-    self.cx_ = cx
-    self.cy_ = cy
+    self.fx = fx
+    self.fy = fy
+    self.cx = cx
+    self.cy = cy
 
   def get_spatial_location(self, depth, x_img, y_img):
     spatials = {}
-    x_cam = (x_img - self.cx_) * depth / self.fx_
-    y_cam = (y_img - self.cy_) * depth / self.fy_
+    x_cam = (x_img - self.cx) * depth / self.fx
+    y_cam = (y_img - self.cy) * depth / self.fy
     spatials["x"] = x_cam / 1000
     spatials["y"] = y_cam / 1000
     spatials["z"] = depth / 1000
     return spatials
 
   def set_camera_info(self, fx, fy, cx, cy):
-    self.fx_ = fx
-    self.fy_ = fy
-    self.cx_ = cx
-    self.cy_ = cy
+    self.fx = fx
+    self.fy = fy
+    self.cx = cx
+    self.cy = cy
 
 
 class SpatialCalculator(Node):
@@ -117,13 +117,10 @@ class SpatialCalculator(Node):
     super().__init__("spatial_node")
 
     # Declare parameters
-    self.declare_parameter(
-      "k",
-      [761.81488037, 0.0, 646.52478027, 0.0, 761.15325928, 361.41662598, 0.0, 0.0, 1.0],
-    )
-    intrinsic_matrix_flat = (
-      self.get_parameter("k").get_parameter_value().double_array_value
-    )
+    self.declare_parameter("k", [0.0] * 9)
+    self.declare_parameter("coordinate_calc_method", "SinglePointDepth")
+    self.declare_parameter("host_spatials_method", "bbox_center")
+    self.declare_parameter("neighbourhood_pixels", 4)
 
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
@@ -137,7 +134,20 @@ class SpatialCalculator(Node):
       self, DetectionArray, "yolo/tracking", qos_profile=10
     )  # subscriber to detections message
 
-    self.camera_info_handler = CameraInfo(
+    intrinsic_matrix_flat = (
+      self.get_parameter("k").get_parameter_value().double_array_value
+    )
+    self.__coordinate_calc_method = (
+      self.get_parameter("coordinate_calc_method").get_parameter_value().string_value
+    )
+    self.__host_spatials_method = (
+      self.get_parameter("host_spatials_method").get_parameter_value().string_value
+    )
+    neighbourhood_pixels = (
+      self.get_parameter("neighbourhood_pixels").get_parameter_value().integer_value
+    )
+
+    self.camera_info_handler = CameraInfoManager(
       intrinsic_matrix_flat[0],
       intrinsic_matrix_flat[4],
       intrinsic_matrix_flat[2],
@@ -152,9 +162,9 @@ class SpatialCalculator(Node):
 
     self.bridge = CvBridge()
     self.balls_cam_msg = SpatialBallArray()
-    self.hostSpatials = HostSpatialsCalc()
+    self.hostSpatials = HostSpatialsCalc(neighbourhood_pixels)
 
-    self.get_logger().info(f"SpatialCalculator node started.")
+    self.get_logger().info("SpatialCalculator node started.")
 
   def detections_cb(self, depthImg_msg: Image, detections_msg: DetectionArray):
     # Reset old data
@@ -172,15 +182,24 @@ class SpatialCalculator(Node):
       bbox_xywh = self.parse_bbox(detection.bbox)
       center_xy = bbox_xywh[:2]
       center_xy = [int(item) for item in center_xy]
-      # bbox_xyxy = xywh2xyxy(bbox_xywh)
 
-      # Send bbox center to spatial calculator
-      # spatials = self.hostSpatials.calc_spatials(depthFrame, center_xy)
-      spatials = self.camera_info_handler.get_spatial_location(
-        depthFrame[center_xy[1], center_xy[0]], center_xy[0], center_xy[1]
-      )
-      # Send bbox as ROI to spatial calculator
-      # spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xyxy)
+      match self.__coordinate_calc_method:
+        case "SinglePointDepth":
+          spatials = self.camera_info_handler.get_spatial_location(
+            depthFrame[center_xy[1], center_xy[0]], center_xy[0], center_xy[1]
+          )
+
+        case "HostSpatials":
+          if self.__host_spatials_method == "bbox_center":
+            spatials = self.hostSpatials.calc_spatials(depthFrame, center_xy)
+          elif self.__host_spatials_method == "bbox_roi":
+            bbox_xyxy = xywh2xyxy(bbox_xywh)
+            spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xyxy)
+          else:
+            raise ValueError("Invalid host spatials calculation method")
+
+        case _:
+          raise ValueError("Invalid coordinate calculation method")
 
       # Get 'Ball' type message for individual detection
       ball_msg = SpatialBall()

@@ -39,8 +39,12 @@ def generate_launch_description():
     description="Name of the tracking topic",
   )
 
-  camera_info_config = os.path.join(
-    get_package_share_directory("oakd"), "config", "camera_info.yaml"
+  camera_config = os.path.join(
+    get_package_share_directory("oakd"), "config", "cam_driver.yaml"
+  )
+
+  spatial_location_config = os.path.join(
+    get_package_share_directory("oakd"), "config", "spatial_location.yaml"
   )
 
   base2cam_config = os.path.join(
@@ -56,7 +60,7 @@ def generate_launch_description():
     executable="spatial_node",
     name="spatial_node",
     remappings=[("stereo/depth", depth_image_topic), ("yolo/tracking", tracking_topic)],
-    parameters=[camera_info_config],
+    parameters=[camera_config, spatial_location_config],
   )
 
   markers_node_cmd = Node(
