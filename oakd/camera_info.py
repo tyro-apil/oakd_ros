@@ -10,32 +10,17 @@ class CameraInfoPublisher(Node):
     super().__init__("camera_info_node")
 
     self.declare_parameter("height", 720)
-    self.declare_parameter("width", 1080)
+    self.declare_parameter("width", 1280)
     self.declare_parameter("distortion_model", "rational_polynomial")
-    self.declare_parameter(
-      "d", [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2]
-    )
-    self.declare_parameter("k", [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    self.declare_parameter("d", [0.0] * 14)
+    self.declare_parameter("k", [1.0] * 9)
     self.declare_parameter(
       "p",
-      [
-        761.81488037,
-        0.0,
-        646.52478027,
-        0.0,
-        0.0,
-        761.15325928,
-        361.41662598,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-      ],
+      [0.0] * 12,
     )
 
     self.publisher_ = self.create_publisher(CameraInfo, "rgb/camera_info", 10)
-    timer_period = 0.05  # seconds
+    timer_period = 0.0333
     self.timer = self.create_timer(timer_period, self.timer_callback)
     self.get_logger().info("CameraInfo publisher node started")
 
