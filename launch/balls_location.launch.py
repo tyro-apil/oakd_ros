@@ -43,6 +43,10 @@ def generate_launch_description():
     get_package_share_directory("oakd"), "config", "cam_driver.yaml"
   )
 
+  common_config = os.path.join(
+    get_package_share_directory("oakd"), "config", "common.yaml"
+  )
+
   spatial_location_config = os.path.join(
     get_package_share_directory("oakd"), "config", "spatial_location.yaml"
   )
@@ -72,7 +76,7 @@ def generate_launch_description():
     namespace=namespace,
     executable="cam2base_node",
     name="cam2base_node",
-    parameters=[base2cam_config],
+    parameters=[base2cam_config, common_config],
   )
 
   base2map_node_cmd = Node(
