@@ -25,17 +25,21 @@ def get_dist(point) -> float:
 class GoalPose(Node):
   def __init__(self):
     super().__init__("goal_pose_node")
-    self.declare_parameter("ball_diameter", 0.190)
-    self.declare_parameter("ball_xy_limits", [0.0] * 4)
-    self.declare_parameter("absolute_yaw_xy_limits", [0.0] * 4)
+
+    self.declare_parameter("timer_period_sec", 0.02)
     self.declare_parameter("team_color", "red")
-    self.declare_parameter("goalpose_limits", [0.0] * 4)
+    self.declare_parameter("ball_diameter", 0.190)
+
+    self.declare_parameter("limit_ball_range", True)
+    self.declare_parameter("clamp_goalpose", True)
+    self.declare_parameter("yaw_for_corners", True)
+
     self.declare_parameter("x_intake_offset", 0.60)
     self.declare_parameter("y_intake_offset", 0.15)
-    self.declare_parameter("is_ball_range_limits", True)
-    self.declare_parameter("is_clamp_goalpose", True)
-    self.declare_parameter("is_absolute_yaw_corners", True)
-    self.declare_parameter("timer_period_sec", 0.02)
+
+    self.declare_parameter("ball_xy_limits", [0.0] * 4)
+    self.declare_parameter("safe_xy_limits", [0.0] * 4)
+    self.declare_parameter("goalpose_limits", [0.0] * 4)
     self.add_on_set_parameters_callback(self.params_set_callback)
 
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
@@ -66,10 +70,8 @@ class GoalPose(Node):
     self.ball_xy_limits = (
       self.get_parameter("ball_xy_limits").get_parameter_value().double_array_value
     )
-    self.absolute_yaw_xy_limits = (
-      self.get_parameter("absolute_yaw_xy_limits")
-      .get_parameter_value()
-      .double_array_value
+    self.safe_xy_limits = (
+      self.get_parameter("safe_xy_limits").get_parameter_value().double_array_value
     )
     self.team_color = (
       self.get_parameter("team_color").get_parameter_value().string_value
@@ -78,7 +80,7 @@ class GoalPose(Node):
       self.get_parameter("goalpose_limits").get_parameter_value().double_array_value
     )
     self.ball_xy_limits = XY_limits(*self.ball_xy_limits)
-    self.absolute_yaw_xy_limits = XY_limits(*self.absolute_yaw_xy_limits)
+    self.safe_xy_limits = XY_limits(*self.safe_xy_limits)
     self.goalpose_limits = XY_limits(*self.goalpose_limits)
 
     self.__x_intake_offset = (
@@ -87,14 +89,14 @@ class GoalPose(Node):
     self.__y_intake_offset = (
       self.get_parameter("y_intake_offset").get_parameter_value().double_value
     )
-    self.__is_ball_range_limits = (
-      self.get_parameter("is_ball_range_limits").get_parameter_value().bool_value
+    self.__limit_ball_range = (
+      self.get_parameter("limit_ball_range").get_parameter_value().bool_value
     )
-    self.__is_clamp_goalpose = (
-      self.get_parameter("is_clamp_goalpose").get_parameter_value().bool_value
+    self.__clamp_goalpose = (
+      self.get_parameter("clamp_goalpose").get_parameter_value().bool_value
     )
-    self.__is_absolute_yaw_corners = (
-      self.get_parameter("is_absolute_yaw_corners").get_parameter_value().bool_value
+    self.__yaw_for_corners = (
+      self.get_parameter("yaw_for_corners").get_parameter_value().bool_value
     )
 
     self.translation_map2base = None
@@ -142,7 +144,7 @@ class GoalPose(Node):
         if ball.class_name == self.team_color
       ]
       # Filter balls within xy limits
-      if self.__is_ball_range_limits:
+      if self.__limit_ball_range:
         team_colored_balls = [
           ball
           for ball in team_colored_balls
@@ -229,25 +231,25 @@ class GoalPose(Node):
     return goalpose_map
 
   def get_goalPose_yaw(self, target_ball_location):
-    if self.__is_absolute_yaw_corners:
+    if self.__yaw_for_corners:
       if (
-        target_ball_location[0] < self.absolute_yaw_xy_limits.xmin
-        and target_ball_location[1] > self.absolute_yaw_xy_limits.ymin
+        target_ball_location[0] < self.safe_xy_limits.xmin
+        and target_ball_location[1] > self.safe_xy_limits.ymin
       ):
         return pi
       elif (
-        target_ball_location[0] > self.absolute_yaw_xy_limits.xmin
-        and target_ball_location[1] > self.absolute_yaw_xy_limits.ymax
+        target_ball_location[0] > self.safe_xy_limits.xmin
+        and target_ball_location[1] > self.safe_xy_limits.ymax
       ):
         return pi / 2
       elif (
-        target_ball_location[0] > self.absolute_yaw_xy_limits.xmax
-        and target_ball_location[1] < self.absolute_yaw_xy_limits.ymax
+        target_ball_location[0] > self.safe_xy_limits.xmax
+        and target_ball_location[1] < self.safe_xy_limits.ymax
       ):
         return 0.0
       elif (
-        target_ball_location[0] < self.absolute_yaw_xy_limits.xmax
-        and target_ball_location[1] < self.absolute_yaw_xy_limits.ymin
+        target_ball_location[0] < self.safe_xy_limits.xmax
+        and target_ball_location[1] < self.safe_xy_limits.ymin
       ):
         return -pi / 2
     base2ball_vec = [
@@ -263,7 +265,7 @@ class GoalPose(Node):
   def clamp_target(self, target_map):
     clampped_target = target_map
 
-    if self.__is_clamp_goalpose:
+    if self.__clamp_goalpose:
       if target_map[0] < self.goalpose_limits.xmin:
         clampped_target[0] = self.goalpose_limits.xmin
       elif target_map[0] > self.goalpose_limits.xmax:
