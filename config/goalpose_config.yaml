@@ -17,7 +17,6 @@
     ## XY clamp limits for ball range
     # xmin, ymin, xmax, ymax
     ball_xy_limits: [-3.00, -1.00, 3.00, 2.00]
-    # ball_xy_limits: [-5.000, -5.000, 5.000, 5.000]
 
     ## XY limits for collision free-movement
     # xmin, ymin, xmax, ymax

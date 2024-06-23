@@ -10,16 +10,10 @@ import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from oakd_msgs.msg import SpatialBallArray, StatePose
-from rcl_interfaces.msg import SetParametersResult
-from rclpy.node import Node, Parameter
+from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from scipy.spatial.transform import Rotation as R
 from std_msgs.msg import Bool
-
-
-def get_dist(point) -> float:
-  """Calculate euclidean distance between two 2D points"""
-  return sqrt(point[0] ** 2 + point[1] ** 2)
 
 
 class GoalPose(Node):
@@ -40,7 +34,6 @@ class GoalPose(Node):
     self.declare_parameter("ball_xy_limits", [0.0] * 4)
     self.declare_parameter("safe_xy_limits", [0.0] * 4)
     self.declare_parameter("goalpose_limits", [0.0] * 4)
-    self.add_on_set_parameters_callback(self.params_set_callback)
 
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
 
@@ -61,11 +54,11 @@ class GoalPose(Node):
       self.baselink_pose_callback,
       qos_profile=qos_profile,
     )
-    self.baselink_pose_subscriber  # prevent unused variable warning
+    self.baselink_pose_subscriber
     self.balls_baselink_subscriber = self.create_subscription(
       SpatialBallArray, "balls_map", self.data_received_callback, 10
     )
-    self.balls_baselink_subscriber  # prevent unused variable warning
+    self.balls_baselink_subscriber
 
     self.ball_xy_limits = (
       self.get_parameter("ball_xy_limits").get_parameter_value().double_array_value
@@ -105,23 +98,10 @@ class GoalPose(Node):
     self.state_n_goalpose = StatePose()
 
     self.tracked_id = None
-    self.previous_time = None
+    self.target_ball_location = None
     self.is_ball_tracked = Bool()
 
     self.get_logger().info("Goalpose node started")
-
-  def params_set_callback(self, params):
-    success = False
-    for param in params:
-      if param.name == "team_color":
-        if param.type_ == Parameter.Type.STRING:
-          success = True
-          self.team_color = param.value
-    self.get_logger().info(f"team_color: {self.team_color}")
-    return SetParametersResult(successful=success)
-
-  def publish_state_n_goalpose(self):
-    self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     self.translation_map2base = np.zeros(3)
@@ -134,74 +114,60 @@ class GoalPose(Node):
     self.quaternion_map2base[1] = pose_msg.pose.pose.orientation.y
     self.quaternion_map2base[2] = pose_msg.pose.pose.orientation.z
     self.quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
+    return
 
   def data_received_callback(self, SpatialBalls_msg: SpatialBallArray):
-    if self.translation_map2base is not None:
-      # Filter balls of team color
+    if self.translation_map2base is None:
+      return
+
+    team_colored_balls = self.filter_balls(SpatialBalls_msg.spatial_balls)
+    self.get_logger().info(
+      f"deteted: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
+    )
+
+    if len(team_colored_balls) == 0:
+      self.set_ball_tracking_state(False)
+      self.update_state_msg()
+      return
+
+    target_ball_id, target_ball_location = self.get_closest_ball(team_colored_balls)
+
+    goalPose_map = self.get_goalpose_map(target_ball_location)
+
+    self.set_goalpose_map(goalPose_map)
+    self.set_ball_tracking_state(True)
+    self.set_tracked_id(target_ball_id)
+    self.set_target_ball_location(target_ball_location)
+    self.update_state_msg()
+    return
+
+  def filter_balls(self, balls):
+    """Filter balls of team color and within xy limits"""
+    team_colored_balls = [ball for ball in balls if ball.class_name == self.team_color]
+    if self.__limit_ball_range:
       team_colored_balls = [
         ball
-        for ball in SpatialBalls_msg.spatial_balls
-        if ball.class_name == self.team_color
+        for ball in team_colored_balls
+        if ball.position.x > self.ball_xy_limits.xmin
+        and ball.position.x < self.ball_xy_limits.xmax
+        and ball.position.y > self.ball_xy_limits.ymin
+        and ball.position.y < self.ball_xy_limits.ymax
       ]
-      # Filter balls within xy limits
-      if self.__limit_ball_range:
-        team_colored_balls = [
-          ball
-          for ball in team_colored_balls
-          if ball.position.x > self.ball_xy_limits.xmin
-          and ball.position.x < self.ball_xy_limits.xmax
-          and ball.position.y > self.ball_xy_limits.ymin
-          and ball.position.y < self.ball_xy_limits.ymax
-        ]
-      self.get_logger().info(
-        f"deteted: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
-      )
+    return team_colored_balls
 
-      if len(team_colored_balls) > 0:
-        self.target_ball_location = []
-
-        # Assume tracked ball is lost
-        prevBall_lost = True
-        target_index = None
-
-        # Check if tracked ball is still in view
-        if self.tracked_id is not None:
-          for i, ball in enumerate(team_colored_balls):
-            if self.tracked_id == int(ball.tracker_id):
-              prevBall_lost = False
-              target_index = i
-              break
-
-        # If tracked ball is lost, track the nearest ball
-        if prevBall_lost:
-          target_index = self.get_min_distance_index(team_colored_balls)
-          self.tracked_id = int(team_colored_balls[target_index].tracker_id)
-
-        target_ball_location = [
-          team_colored_balls[target_index].position.x,
-          (team_colored_balls[target_index].position.y),
-        ]
-        goalPose_map = self.get_goalpose_map(target_ball_location)
-        self.set_goalpose_map(goalPose_map)
-        self.is_ball_tracked.data = True
-      else:
-        self.is_ball_tracked.data = False
-
-      self.state_n_goalpose.is_tracked.data = self.is_ball_tracked.data
-      self.state_n_goalpose.goalpose = self.goalpose_map
-
-  def get_min_distance_index(self, balls):
-    """Return index of ball at min distance from base_link inside SpatialBallArray msg"""
-    min_distance_index = 0
-    min_distance = get_dist(
-      (balls[min_distance_index].position.x, balls[min_distance_index].position.y)
+  def get_closest_ball(self, balls):
+    closest_ball = min(
+      balls,
+      key=lambda ball: self.get_base2ball_distance((ball.position.x, ball.position.y)),
     )
-    for i, ball in enumerate(balls):
-      dist = get_dist((ball.position.x, ball.position.y))
-      if dist < min_distance:
-        min_distance = dist
-        min_distance_index = i
-    return min_distance_index
+    return closest_ball.tracker_id, (closest_ball.position.x, closest_ball.position.y)
+
+  def get_base2ball_distance(self, x_ball_location, y_ball_location):
+    base2ball_vector = (
+      x_ball_location - self.translation_map2base[0],
+      y_ball_location - self.translation_map2base[1],
+    )
+    return sqrt(base2ball_vector[0] ** 2 + base2ball_vector[1] ** 2)
 
   def get_goalpose_map(self, target_ball_location):
     goalpose_map = PoseStamped()
@@ -216,11 +182,13 @@ class GoalPose(Node):
     target_map[1] = target_ball_location[1] + (
       -self.__x_intake_offset * sin(yaw) + self.__y_intake_offset * cos(yaw)
     )
-    clamped_target_map = self.clamp_target(target_map)
 
-    goalpose_map.pose.position.x = float(clamped_target_map[0])
-    goalpose_map.pose.position.y = float(clamped_target_map[1])
-    goalpose_map.pose.position.z = float(clamped_target_map[2])
+    if self.__clamp_goalpose:
+      target_map = self.clamp_target(target_map)
+
+    goalpose_map.pose.position.x = float(target_map[0])
+    goalpose_map.pose.position.y = float(target_map[1])
+    goalpose_map.pose.position.z = float(target_map[2])
 
     q_goalpose = R.from_euler("ZYX", [yaw, 0.0, 0.0]).as_quat()
     goalpose_map.pose.orientation.x = q_goalpose[0]
@@ -252,31 +220,52 @@ class GoalPose(Node):
         and target_ball_location[1] < self.safe_xy_limits.ymin
       ):
         return -pi / 2
-    base2ball_vec = [
+    base_link2ball_vector = (
       target_ball_location[0] - self.translation_map2base[0],
       target_ball_location[1] - self.translation_map2base[1],
-    ]
-    yaw = atan2(base2ball_vec[1], base2ball_vec[0])
+    )
+    yaw = atan2(base_link2ball_vector[1], base_link2ball_vector[0])
     return yaw
-
-  def set_goalpose_map(self, goalpose_map):
-    self.goalpose_map = goalpose_map
 
   def clamp_target(self, target_map):
     clampped_target = target_map
 
-    if self.__clamp_goalpose:
-      if target_map[0] < self.goalpose_limits.xmin:
-        clampped_target[0] = self.goalpose_limits.xmin
-      elif target_map[0] > self.goalpose_limits.xmax:
-        clampped_target[0] = self.goalpose_limits.xmax
+    if target_map[0] < self.goalpose_limits.xmin:
+      clampped_target[0] = self.goalpose_limits.xmin
+    elif target_map[0] > self.goalpose_limits.xmax:
+      clampped_target[0] = self.goalpose_limits.xmax
 
-      if target_map[1] < self.goalpose_limits.ymin:
-        clampped_target[1] = self.goalpose_limits.ymin
-      elif target_map[1] > self.goalpose_limits.ymax:
-        clampped_target[1] = self.goalpose_limits.ymax
+    if target_map[1] < self.goalpose_limits.ymin:
+      clampped_target[1] = self.goalpose_limits.ymin
+    elif target_map[1] > self.goalpose_limits.ymax:
+      clampped_target[1] = self.goalpose_limits.ymax
 
     return clampped_target
+
+  def set_goalpose_map(self, goalpose_map):
+    self.goalpose_map = goalpose_map
+    return
+
+  def set_ball_tracking_state(self, is_tracked):
+    self.is_ball_tracked.data = is_tracked
+    return
+
+  def set_target_ball_location(self, target_ball_location):
+    self.target_ball_location = target_ball_location
+    return
+
+  def set_tracked_id(self, tracked_id):
+    self.tracked_id = tracked_id
+    return
+
+  def update_state_msg(self):
+    self.state_n_goalpose.is_tracked.data = self.is_ball_tracked.data
+    self.state_n_goalpose.goalpose = self.goalpose_map
+    return
+
+  def publish_state_n_goalpose(self):
+    self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
+    return
 
 
 def main(args=None):
