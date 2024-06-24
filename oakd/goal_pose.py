@@ -56,7 +56,7 @@ class GoalPose(Node):
     )
     self.baselink_pose_subscriber
     self.balls_baselink_subscriber = self.create_subscription(
-      SpatialBallArray, "balls_map", self.data_received_callback, 10
+      SpatialBallArray, "balls_map", self.balls_msg_received_callback, 10
     )
     self.balls_baselink_subscriber
 
@@ -116,8 +116,9 @@ class GoalPose(Node):
     self.quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
     return
 
-  def data_received_callback(self, SpatialBalls_msg: SpatialBallArray):
+  def balls_msg_received_callback(self, SpatialBalls_msg: SpatialBallArray):
     if self.translation_map2base is None:
+      self.get_logger().info("Waiting for baselink pose...")
       return
 
     team_colored_balls = self.filter_balls(SpatialBalls_msg.spatial_balls)
