@@ -25,10 +25,16 @@ def generate_launch_description():
     description="Name of the pose topic of map2base transform",
   )
 
+  ball_goalpose_topic = LaunchConfiguration("ball_goalpose_topic")
+  ball_goalpose_topic_cmd = DeclareLaunchArgument(
+    "ball_goalpose_topic",
+    default_value="/ball_pose_topic",
+  )
+
   state_n_goalpose_topic = LaunchConfiguration("state_n_goalpose_topic")
   state_n_goalpose_topic_cmd = DeclareLaunchArgument(
     "state_n_goalpose_topic",
-    default_value="/ball_tracking",
+    default_value="/ball_tracker",
     description="Name of the combined tracking state",
   )
 
@@ -51,7 +57,8 @@ def generate_launch_description():
     parameters=[goalpose_config, common_config],
     remappings=[
       ("/odometry/filtered", pose_topic),
-      ("/ball_tracking", state_n_goalpose_topic),
+      ("/ball_tracker", state_n_goalpose_topic),
+      ("/ball_pose_topic", ball_goalpose_topic),
     ],
   )
 
@@ -65,6 +72,7 @@ def generate_launch_description():
   ld = LaunchDescription()
 
   ld.add_action(namespace_cmd)
+  ld.add_action(ball_goalpose_topic_cmd)
   ld.add_action(state_n_goalpose_topic_cmd)
   ld.add_action(pose_topic_cmd)
 
