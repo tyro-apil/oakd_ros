@@ -162,7 +162,7 @@ class GoalPose(Node):
   def get_closest_ball(self, balls):
     closest_ball = min(
       balls,
-      key=lambda ball: self.get_base2ball_distance((ball.position.x, ball.position.y)),
+      key=lambda ball: self.get_base2ball_distance(ball.position.x, ball.position.y),
     )
     return closest_ball.tracker_id, (closest_ball.position.x, closest_ball.position.y)
 
@@ -269,6 +269,7 @@ class GoalPose(Node):
 
   def publish_state_n_goalpose(self):
     self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
+    self.goalpose_publisher.publish(self.goalpose_map)
     return
 
 
