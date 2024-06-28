@@ -37,8 +37,12 @@ class MarkerBroadcaster(Node):
     self.ball_diameter = (
       self.get_parameter("ball_diameter").get_parameter_value().double_value
     )
-    self.topic_sub = self.get_parameter("topic_sub").get_parameter_value().string_value
-    self.frame_ref = self.get_parameter("frame_ref").get_parameter_value().string_value
+    self.topic_sub = (
+      self.get_parameter("balls_topic_sub").get_parameter_value().string_value
+    )
+    self.frame_ref = (
+      self.get_parameter("balls_frame_ref").get_parameter_value().string_value
+    )
 
     self.add_on_set_parameters_callback(self.params_cb)
 
@@ -80,9 +84,9 @@ class MarkerBroadcaster(Node):
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
 
-    marker.scale.x = self.BALL_DIAMETER
-    marker.scale.y = self.BALL_DIAMETER
-    marker.scale.z = self.BALL_DIAMETER
+    marker.scale.x = self.ball_diameter
+    marker.scale.y = self.ball_diameter
+    marker.scale.z = self.ball_diameter
 
     marker_rgb = {"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.8}
     match ball.class_id:

@@ -46,7 +46,10 @@ class GoalPose(Node):
     self.create_timer(timer_period_sec, self.publish_state_n_goalpose)
 
     self.state_n_goalpose_publisher = self.create_publisher(
-      StatePose, "/ball_tracking", 10
+      StatePose, "/ball_tracker", qos_profile=qos_profile
+    )
+    self.goalpose_publisher = self.create_publisher(
+      PoseStamped, "/ball_pose_topic", qos_profile=qos_profile
     )
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,

@@ -55,15 +55,11 @@ class DepthAICameraHandler(Node):
     super().__init__("camera_handler_node")
     self.declare_parameter("width", 1280)
     self.declare_parameter("height", 720)
-    self.declare_parameter("fps", 20)
+    self.declare_parameter("fps", 30)
     # Camera parameters
     self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
-    self.__rgb_width = (
-      self.get_parameter("image_width").get_parameter_value().integer_value
-    )
-    self.__rgb_height = (
-      self.get_parameter("image_height").get_parameter_value().integer_value
-    )
+    self.__rgb_width = self.get_parameter("width").get_parameter_value().integer_value
+    self.__rgb_height = self.get_parameter("height").get_parameter_value().integer_value
     self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
     self.alpha_ = None
 
@@ -144,10 +140,6 @@ class DepthAICameraHandler(Node):
       "Connected cameras: {}".format(self.device.getConnectedCameraFeatures())
     )
     self.get_logger().info("USB speed: {}".format(self.device.getUsbSpeed().name))
-    if self.device.getBootloaderVersion() is not None:
-      self.get_logger().info(
-        "Bootloader version: {}".format(self.device.getBootloaderVersion())
-      )
     self.get_logger().info(
       "Device name: {} Product name: {}".format(
         self.device.getDeviceName(), self.device.getProductName()

@@ -10,13 +10,17 @@ class StaticFramePublisher(Node):
     super().__init__("static_base2cam_tf_publisher")
 
     self.tf_static_broadcaster = StaticTransformBroadcaster(self)
-    self.declare_parameter("translation", [0.0, 0.0, 0.0])
-    self.declare_parameter("ypr", [0.0, 0.0, 0.0])
+    self.declare_parameter("base2cam_translation", [0.0, 0.0, 0.0])
+    self.declare_parameter("base2cam_ypr", [0.0, 0.0, 0.0])
 
     self.translation_ = (
-      self.get_parameter("translation").get_parameter_value().double_array_value
+      self.get_parameter("base2cam_translation")
+      .get_parameter_value()
+      .double_array_value
     )
-    self.ypr_ = self.get_parameter("ypr").get_parameter_value().double_array_value
+    self.ypr_ = (
+      self.get_parameter("base2cam_ypr").get_parameter_value().double_array_value
+    )
 
     # Publish static transforms once at startup
     self.make_transforms()
