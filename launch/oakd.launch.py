@@ -15,6 +15,8 @@ def generate_launch_description():
   tracker = "custom_tracker.yaml"
   baselink_pose_topic = "/odometry/filtered"
   state_n_goalpose_topic = "/ball_tracker"
+  ball_goalpose_topic = "/ball_pose_topic"
+  device = "cuda:0"
 
   cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
@@ -43,6 +45,7 @@ def generate_launch_description():
       "tracker": os.path.join(
         get_package_share_directory("yolov8_ros"), "config", f"{tracker}"
       ),
+      "device": device,
     }.items(),
   )
 
@@ -72,6 +75,7 @@ def generate_launch_description():
       "pose_topic": baselink_pose_topic,
       "namespace": namespace,
       "state_n_goalpose_topic": state_n_goalpose_topic,
+      "ball_goalpose_topic": ball_goalpose_topic,
     }.items(),
   )
 
@@ -95,5 +99,11 @@ def generate_launch_description():
   )
 
   return LaunchDescription(
-    [transforms, cam_driver, yolov8_bringup, republish, ball_location, goalpose]
+    [
+      transforms,
+      cam_driver,
+      yolov8_bringup,
+      ball_location,
+      goalpose,
+    ]
   )
