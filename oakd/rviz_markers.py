@@ -44,8 +44,6 @@ class MarkerBroadcaster(Node):
       self.get_parameter("balls_frame_ref").get_parameter_value().string_value
     )
 
-    self.add_on_set_parameters_callback(self.params_cb)
-
     self.balls_location_subscriber = self.create_subscription(
       SpatialBallArray, self.topic_sub, self.location_received_callback, 10
     )
@@ -54,16 +52,6 @@ class MarkerBroadcaster(Node):
     self.balls_location_subscriber  # prevent unused variable warning
     self.detected_markers = MarkerArray()
     self.get_logger().info("Marker node started")
-
-  def params_cb(self, params):
-    success = False
-    for param in params:
-      if param.name == "team_color":
-        if param.type_ == Parameter.Type.STRING:
-          success = True
-          self.team_color = param.value
-    self.get_logger().info(f"team_color: {self.team_color}")
-    return SetParametersResult(successful=success)
 
   def create_ball_marker(self, ball: MarkerData):
     marker = Marker()
