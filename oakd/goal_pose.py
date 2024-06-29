@@ -9,7 +9,7 @@ import numpy as np
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
-from oakd_msgs.msg import SpatialBallArray, StatePose
+from oakd_msgs.msg import SpatialBall, SpatialBallArray, StatePose
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from scipy.spatial.transform import Rotation as R
@@ -50,6 +50,9 @@ class GoalPose(Node):
     )
     self.goalpose_publisher = self.create_publisher(
       PoseStamped, "/ball_pose_topic", qos_profile=qos_profile
+    )
+    self.target_publisher = self.create_publisher(
+      SpatialBall, "target_ball", qos_profile=qos_profile
     )
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
@@ -97,6 +100,7 @@ class GoalPose(Node):
 
     self.translation_map2base = None
     self.quaternion_map2base = None
+    self.target_ball = SpatialBall()
     self.goalpose_map = PoseStamped()
     self.state_n_goalpose = StatePose()
 
@@ -135,6 +139,7 @@ class GoalPose(Node):
       return
 
     target_ball_id, target_ball_location = self.get_closest_ball(team_colored_balls)
+    self.set_target_ball(target_ball_id, target_ball_location)
 
     goalPose_map = self.get_goalpose_map(target_ball_location)
 
@@ -262,6 +267,14 @@ class GoalPose(Node):
     self.tracked_id = tracked_id
     return
 
+  def set_target_ball(self, target_id, target_location):
+    self.target_ball.tracker_id = target_id
+    self.target_ball.position.x = target_location[0]
+    self.target_ball.position.y = target_location[1]
+    self.target_ball.position.z = 0.0
+    self.target_ball.class_name = self.team_color
+    return
+
   def update_state_msg(self):
     self.state_n_goalpose.is_tracked.data = self.is_ball_tracked.data
     self.state_n_goalpose.goalpose = self.goalpose_map
@@ -270,6 +283,7 @@ class GoalPose(Node):
   def publish_state_n_goalpose(self):
     self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
     self.goalpose_publisher.publish(self.goalpose_map)
+    self.target_publisher.publish(self.target_ball)
     return
 
 
