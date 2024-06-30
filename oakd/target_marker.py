@@ -36,7 +36,7 @@ class MarkerBroadcaster(Node):
     start_point = Point()
     start_point.x = target_position[0]
     start_point.y = target_position[1]
-    start_point.z = 0.500
+    start_point.z = 0.3
 
     end_point = Point()
     end_point.x = target_position[0]
@@ -57,7 +57,7 @@ class MarkerBroadcaster(Node):
     marker.color.b = marker_rgb["b"]
     marker.color.a = marker_rgb["a"]
 
-    marker.lifetime = Duration(seconds=0.25).to_msg()
+    marker.lifetime = Duration(seconds=0.04).to_msg()
     return marker
 
   def goal_received_callback(self, ball: SpatialBall):
@@ -65,7 +65,6 @@ class MarkerBroadcaster(Node):
 
     marker = self.create_target_marker(target_position, ball.tracker_id)
     self.target_marker = marker
-    self.marker_publisher.publish(self.target_marker)
 
 
 def main(args=None):
