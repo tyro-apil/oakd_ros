@@ -51,9 +51,7 @@ class GoalPose(Node):
     self.goalpose_publisher = self.create_publisher(
       PoseStamped, "/ball_pose_topic", qos_profile=qos_profile
     )
-    self.target_publisher = self.create_publisher(
-      SpatialBall, "target_ball", qos_profile=qos_profile
-    )
+    self.target_publisher = self.create_publisher(SpatialBall, "target_ball", 10)
     self.baselink_pose_subscriber = self.create_subscription(
       Odometry,
       "/odometry/filtered",
