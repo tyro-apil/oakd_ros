@@ -72,9 +72,11 @@ class MarkerBroadcaster(Node):
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
 
-    marker.scale.x = self.ball_diameter
-    marker.scale.y = self.ball_diameter
-    marker.scale.z = self.ball_diameter
+    scale = self.ball_diameter / 2
+
+    marker.scale.x = scale
+    marker.scale.y = scale
+    marker.scale.z = scale
 
     marker_rgb = {"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.8}
     match ball.class_id:
