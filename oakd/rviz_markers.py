@@ -96,9 +96,6 @@ class MarkerBroadcaster(Node):
         marker_rgb["g"] = 0.239
         marker_rgb["b"] = 0.863
 
-    if ball.class_name is not self.team_color:
-      marker_rgb["a"] = 0.3
-
     marker.color.r = marker_rgb["r"]
     marker.color.g = marker_rgb["g"]
     marker.color.b = marker_rgb["b"]
