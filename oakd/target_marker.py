@@ -15,13 +15,10 @@ class MarkerBroadcaster(Node):
   def __init__(self):
     super().__init__("marker_node")
 
-    self.__topic_sub = "target_ball"
-    self.__frame_ref = "map"
-
     self.target_ball_subscriber = self.create_subscription(
-      SpatialBall, self.__topic_sub, self.goal_received_callback, 10
+      SpatialBall, "target_ball", self.goal_received_callback, 10
     )
-    self.marker_publisher = self.create_publisher(Marker, "target_ball", 10)
+    self.marker_publisher = self.create_publisher(Marker, "target_marker", 10)
 
     self.target_ball_subscriber  # prevent unused variable warning
     self.target_marker = Marker()
@@ -29,13 +26,12 @@ class MarkerBroadcaster(Node):
 
   def create_target_marker(self, target_position, tracker_id):
     marker = Marker()
-    marker.header.frame_id = self.__frame_ref
+    marker.header.frame_id = "map"
 
     marker.ns = "oak"
-    marker.id = int(tracker_id)
+    marker.id = 0
     marker.type = Marker.ARROW
     marker.action = Marker.ADD
-    marker.frame_locked = False
 
     start_point = Point()
     start_point.x = target_position[0]
