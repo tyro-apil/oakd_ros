@@ -27,6 +27,7 @@ class GoalPose(Node):
     self.declare_parameter("limit_ball_range", True)
     self.declare_parameter("clamp_goalpose", True)
     self.declare_parameter("yaw_for_corners", True)
+    self.declare_parameter("consistent_target", False)
 
     self.declare_parameter("x_intake_offset", 0.60)
     self.declare_parameter("y_intake_offset", 0.15)
@@ -94,6 +95,9 @@ class GoalPose(Node):
     )
     self.__yaw_for_corners = (
       self.get_parameter("yaw_for_corners").get_parameter_value().bool_value
+    )
+    self.__consistent_target = (
+      self.get_parameter("consistent_target").get_parameter_value().bool_value
     )
 
     self.translation_map2base = None
