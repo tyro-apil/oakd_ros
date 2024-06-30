@@ -28,6 +28,7 @@ class GoalPose(Node):
     self.declare_parameter("clamp_goalpose", True)
     self.declare_parameter("yaw_for_corners", True)
     self.declare_parameter("consistent_target", False)
+    self.declare_parameter("yaw_90", False)
 
     self.declare_parameter("x_intake_offset", 0.60)
     self.declare_parameter("y_intake_offset", 0.15)
@@ -99,6 +100,7 @@ class GoalPose(Node):
     self.__consistent_target = (
       self.get_parameter("consistent_target").get_parameter_value().bool_value
     )
+    self.__yaw_90 = self.get_parameter("yaw_90").get_parameter_value().bool_value
 
     self.translation_map2base = None
     self.quaternion_map2base = None
@@ -210,6 +212,9 @@ class GoalPose(Node):
     return goalpose_map
 
   def get_goalPose_yaw(self, target_ball_location):
+    if self.__yaw_90:
+      return pi / 2
+
     if self.__yaw_for_corners:
       if (
         target_ball_location[0] < self.safe_xy_limits.xmin
