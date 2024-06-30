@@ -36,7 +36,7 @@ class MarkerBroadcaster(Node):
     start_point = Point()
     start_point.x = target_position[0]
     start_point.y = target_position[1]
-    start_point.z = 0.3
+    start_point.z = 0.40
 
     end_point = Point()
     end_point.x = target_position[0]
