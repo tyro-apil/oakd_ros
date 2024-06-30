@@ -101,7 +101,7 @@ class MarkerBroadcaster(Node):
     marker.color.b = marker_rgb["b"]
     marker.color.a = marker_rgb["a"]
 
-    marker.lifetime = Duration(seconds=0.25).to_msg()
+    marker.lifetime = Duration(seconds=0.5).to_msg()
     marker.text = ball.class_name
 
     return marker
