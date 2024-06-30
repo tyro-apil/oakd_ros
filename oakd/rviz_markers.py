@@ -72,7 +72,7 @@ class MarkerBroadcaster(Node):
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
 
-    scale = self.ball_diameter / 2
+    scale = self.ball_diameter
 
     marker.scale.x = scale
     marker.scale.y = scale
