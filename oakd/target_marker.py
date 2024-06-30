@@ -65,6 +65,7 @@ class MarkerBroadcaster(Node):
 
     marker = self.create_target_marker(target_position, ball.tracker_id)
     self.target_marker = marker
+    self.marker_publisher.publish(self.target_marker)
 
 
 def main(args=None):
