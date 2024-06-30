@@ -59,6 +59,10 @@ def generate_launch_description():
     get_package_share_directory("oakd"), "config", "base2cam.yaml"
   )
 
+  balls_map_config = os.path.join(
+    get_package_share_directory("oakd"), "config", "balls_map.yaml"
+  )
+
   #
   # NODES
   #
@@ -93,6 +97,7 @@ def generate_launch_description():
     executable="base2map_node",
     name="base2map_node",
     remappings=[("/odometry/filtered", pose_topic)],
+    parameters=[balls_map_config, common_config],
   )
 
   ld = LaunchDescription()

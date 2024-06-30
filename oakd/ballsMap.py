@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 import numpy as np
 import rclpy
 from nav_msgs.msg import Odometry
@@ -13,6 +15,14 @@ class Base2MapCoordinateTransform(Node):
 
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
+
+    XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
+
+    self.declare_parameter("ball_diameter", 0.190)
+    self.declare_parameter("clip_ball_xy", False)
+    self.declare_parameter("filter_ball_xy", False)
+    self.declare_parameter("xy_clip_limits", [0.0] * 4)
+    self.declare_parameter("xy_filter_limits", [0.0] * 4)
 
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(SpatialBallArray, "balls_map", 10)
@@ -30,34 +40,81 @@ class Base2MapCoordinateTransform(Node):
     )
     self.baselink_pose_subscriber  # prevent unused variable warning
 
+    self.ball_diameter = (
+      self.get_parameter("ball_diameter").get_parameter_value().double_value
+    )
+    self.__clip_ball_xy = (
+      self.get_parameter("clip_ball_xy").get_parameter_value().bool_value
+    )
+    self.__filter_ball_xy = (
+      self.get_parameter("filter_ball_xy").get_parameter_value().bool_value
+    )
+    xy_clip_limits = (
+      self.get_parameter("xy_clip_limits").get_parameter_value().double_array_value
+    )
+    xy_filter_limits = (
+      self.get_parameter("xy_filter_limits").get_parameter_value().double_array_value
+    )
+
+    self.xy_clip_limits = XY_limits(*xy_clip_limits)
+    self.xy_filter_limits = XY_limits(*xy_filter_limits)
+
     self.translation_map2base = None
     self.quaternion_map2base = None
 
     self.proj_map2base = None
 
-    self.balls_map_msg = SpatialBallArray()
     self.get_logger().info("Baselink2map coordinate transformation node started.")
 
   def balls_baselink_cb(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
-    if self.proj_map2base is not None:
-      balls_map_msg = SpatialBallArray()
-      # breakpoint()
-      for ball in msg.spatial_balls:
-        ball_map_msg = SpatialBall()
-        ball_map_msg = ball
+    if self.proj_map2base is None:
+      return
 
-        ball_baselink_xyz = [ball.position.x, ball.position.y, ball.position.z]
-        # ball_baselink_xyz = [ball.position.x, ball.position.y, BALL_DIAMETER/2]
-        ball_map_xyz = self.base2map(ball_baselink_xyz)
-        ball_map_msg.position.x = float(ball_map_xyz[0])
-        ball_map_msg.position.y = float(ball_map_xyz[1])
-        ball_map_msg.position.z = float(ball_map_xyz[2])
+    if self.__filter_ball_xy:
+      balls = self.filter_balls(msg.spatial_balls)
 
-        balls_map_msg.spatial_balls.append(ball_map_msg)
+    balls_map_msg = SpatialBallArray()
+    # breakpoint()
+    for ball in balls:
+      ball_map_msg = SpatialBall()
+      ball_map_msg = ball
 
-      self.balls_map_msg = balls_map_msg
-      self.balls_map_publisher.publish(self.balls_map_msg)
+      ball_baselink_xyz = [ball.position.x, ball.position.y, ball.position.z]
+      ball_map_xyz = self.base2map(ball_baselink_xyz)
+
+      if self.__clip_ball_xy:
+        ball_map_xyz[0] = np.clip(
+          ball_map_xyz[0],
+          self.xy_clip_limits.xmin + self.ball_diameter / 2,
+          self.xy_clip_limits.xmax - self.ball_diameter / 2,
+        )
+        ball_map_xyz[1] = np.clip(
+          ball_map_xyz[1],
+          self.xy_clip_limits.ymin + self.ball_diameter / 2,
+          self.xy_clip_limits.ymax - self.ball_diameter / 2,
+        )
+
+      ball_map_msg.position.x = float(ball_map_xyz[0])
+      ball_map_msg.position.y = float(ball_map_xyz[1])
+      ball_map_msg.position.z = float(ball_map_xyz[2])
+
+      balls_map_msg.spatial_balls.append(ball_map_msg)
+
+    self.balls_map_publisher.publish(balls_map_msg)
+    return
+
+  def filter_balls(self, balls):
+    """Filter balls based on the xy limits"""
+    filtered_balls = [
+      ball
+      for ball in balls
+      if ball.position.x > self.xy_filter_limits.xmin
+      and ball.position.x < self.xy_filter_limits.xmax
+      and ball.position.y > self.xy_filter_limits.ymin
+      and ball.position.y < self.xy_filter_limits.ymax
+    ]
+    return filtered_balls
 
   def base2map(self, baselink_point):
     """Transform the point from base_link frame to map frame"""
