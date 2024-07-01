@@ -24,7 +24,6 @@ class GoalPose(Node):
     self.declare_parameter("team_color", "red")
     self.declare_parameter("ball_diameter", 0.190)
 
-    self.declare_parameter("limit_ball_range", True)
     self.declare_parameter("clamp_goalpose", True)
     self.declare_parameter("yaw_for_corners", True)
     self.declare_parameter("consistent_target", False)
@@ -33,7 +32,6 @@ class GoalPose(Node):
     self.declare_parameter("x_intake_offset", 0.60)
     self.declare_parameter("y_intake_offset", 0.15)
 
-    self.declare_parameter("ball_xy_limits", [0.0] * 4)
     self.declare_parameter("safe_xy_limits", [0.0] * 4)
     self.declare_parameter("goalpose_limits", [0.0] * 4)
 
@@ -66,9 +64,6 @@ class GoalPose(Node):
     )
     self.balls_baselink_subscriber
 
-    self.ball_xy_limits = (
-      self.get_parameter("ball_xy_limits").get_parameter_value().double_array_value
-    )
     self.safe_xy_limits = (
       self.get_parameter("safe_xy_limits").get_parameter_value().double_array_value
     )
@@ -87,9 +82,6 @@ class GoalPose(Node):
     )
     self.__y_intake_offset = (
       self.get_parameter("y_intake_offset").get_parameter_value().double_value
-    )
-    self.__limit_ball_range = (
-      self.get_parameter("limit_ball_range").get_parameter_value().bool_value
     )
     self.__clamp_goalpose = (
       self.get_parameter("clamp_goalpose").get_parameter_value().bool_value
@@ -155,17 +147,8 @@ class GoalPose(Node):
     return
 
   def filter_balls(self, balls):
-    """Filter balls of team color and within xy limits"""
+    """Filter balls of team color"""
     team_colored_balls = [ball for ball in balls if ball.class_name == self.team_color]
-    if self.__limit_ball_range:
-      team_colored_balls = [
-        ball
-        for ball in team_colored_balls
-        if ball.position.x > self.ball_xy_limits.xmin
-        and ball.position.x < self.ball_xy_limits.xmax
-        and ball.position.y > self.ball_xy_limits.ymin
-        and ball.position.y < self.ball_xy_limits.ymax
-      ]
     return team_colored_balls
 
   def get_closest_ball(self, balls):
