@@ -71,8 +71,10 @@ class Base2MapCoordinateTransform(Node):
     if self.proj_map2base is None:
       return
 
+    balls = msg.spatial_balls
+
     if self.__filter_ball_xy:
-      balls = self.filter_balls(msg.spatial_balls)
+      balls = self.filter_balls(balls)
 
     balls_map_msg = SpatialBallArray()
     # breakpoint()
