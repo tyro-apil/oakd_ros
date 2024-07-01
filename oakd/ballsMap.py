@@ -71,14 +71,9 @@ class Base2MapCoordinateTransform(Node):
     if self.proj_map2base is None:
       return
 
-    balls = msg.spatial_balls
-
-    if self.__filter_ball_xy:
-      balls = self.filter_balls(balls)
-
     balls_map_msg = SpatialBallArray()
     # breakpoint()
-    for ball in balls:
+    for ball in msg.spatial_balls:
       ball_map_msg = SpatialBall()
       ball_map_msg = ball
 
@@ -102,6 +97,9 @@ class Base2MapCoordinateTransform(Node):
       ball_map_msg.position.z = float(ball_map_xyz[2])
 
       balls_map_msg.spatial_balls.append(ball_map_msg)
+
+    if self.__filter_ball_xy:
+      balls_map_msg.spatial_balls = self.filter_balls(balls_map_msg.spatial_balls)
 
     self.balls_map_publisher.publish(balls_map_msg)
     return
