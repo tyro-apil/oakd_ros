@@ -2,11 +2,10 @@
   ros__parameters:
     timer_period_sec: 0.03     # in seconds
 
-    limit_ball_range: True
-    clamp_goalpose: True
+    clamp_goalpose: False
     yaw_for_corners: False
     consistent_target: False
-    yaw_90: True
+    yaw_90: False
 
     # Offset from base_link to intake
     x_intake_offset: 0.60
@@ -15,10 +14,6 @@
     ## XY clamp limits for goalpose
     # xmin, ymin, xmax, ymax
     goalpose_limits:  [-1.35, -0.60, 1.35, 1.10]
-
-    ## XY clamp limits for ball range
-    # xmin, ymin, xmax, ymax
-    ball_xy_limits: [-3.00, -1.00, 3.00, 2.00]
 
     ## XY limits for collision free-movement
     # xmin, ymin, xmax, ymax
