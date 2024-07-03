@@ -137,13 +137,11 @@ class DepthAICameraHandler(Node):
       raise Exception("Could not read calibration data")
 
     self.get_logger().info(
-      "Connected cameras: {}".format(self.device.getConnectedCameraFeatures())
+      f"Connected camera: {self.device.getConnectedCameraFeatures()}"
     )
-    self.get_logger().info("USB speed: {}".format(self.device.getUsbSpeed().name))
+    self.get_logger().info(f"USB speed: {self.device.getUsbSpeed().name}")
     self.get_logger().info(
-      "Device name: {} Product name: {}".format(
-        self.device.getDeviceName(), self.device.getProductName()
-      )
+      f"Device name: {self.device.getDeviceName()} Product name: {self.device.getProductName()}"
     )
     self.get_logger().info("Driver node started")
 
