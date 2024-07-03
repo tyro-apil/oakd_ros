@@ -73,7 +73,6 @@ class GoalPose(Node):
     self.goalpose_limits = (
       self.get_parameter("goalpose_limits").get_parameter_value().double_array_value
     )
-    self.ball_xy_limits = XY_limits(*self.ball_xy_limits)
     self.safe_xy_limits = XY_limits(*self.safe_xy_limits)
     self.goalpose_limits = XY_limits(*self.goalpose_limits)
 
