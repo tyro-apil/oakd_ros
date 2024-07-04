@@ -77,6 +77,9 @@ class DepthAICameraHandler(Node):
       depth=1,
     )
 
+    odom_qos_profile = QoSProfile(depth=10)
+    odom_qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
+
     # Create a publisher for the RGB images
     self.rgb_publisher_ = self.create_publisher(
       ImagePose, "rgb/rect", qos_profile=image_qos_profile
@@ -85,7 +88,7 @@ class DepthAICameraHandler(Node):
       ImagePose, "stereo/depth", qos_profile=image_qos_profile
     )
     self.odom_subscriber = self.create_subscription(
-      Odometry, "/odometry/filtered", self.odom_callback, qos_profile=image_qos_profile
+      Odometry, "/odometry/filtered", self.odom_callback, qos_profile=odom_qos_profile
     )
 
     self.odom_msg = Odometry()
@@ -178,6 +181,9 @@ class DepthAICameraHandler(Node):
     self.rgb_img_pose = ImagePose()
     self.depth_img_pose = ImagePose()
 
+  def odom_callback(self, msg):
+    self.odom_msg = msg
+
   def timer_callback(self):
     inRgb = (
       self.qRgb.tryGet()
@@ -200,6 +206,12 @@ class DepthAICameraHandler(Node):
       # self.get_logger().info(f'RGB frame shape {rgb_frame.shape} Depth frame shape {depth_frame.shape}')
       rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(rgb_frame, encoding="bgr8")
       depthImg_ros_msg = self.bridge.cv2_to_imgmsg(depth_frame, encoding="16UC1")
+
+      self.rgb_img_pose.header.stamp = self.get_clock().now().to_msg()
+      self.rgb_img_pose.header.frame_id = "oak_rgb_camera_link_optical"
+      self.depth_img_pose.header.stamp = self.get_clock().now().to_msg()
+      self.depth_img_pose.header.frame_id = "oak_rgb_camera_link_optical"
+
       self.rgb_img_pose.image = rgbImg_ros_msg
       self.rgb_img_pose.pose_capture = self.odom_msg
       self.depth_img_pose.image = depthImg_ros_msg
