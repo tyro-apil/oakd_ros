@@ -2,6 +2,7 @@
   ros__parameters:
     clip_ball_xy: False
     filter_ball_xy: False
+    set_fixed_z: True
 
     xy_clip_limits: [-2.000, -1.000, 2.000, 1.711]
     xy_filter_limits: [-2.500, -1.500, 2.500, 2.211]

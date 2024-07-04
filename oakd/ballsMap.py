@@ -23,6 +23,7 @@ class Base2MapCoordinateTransform(Node):
     self.declare_parameter("filter_ball_xy", False)
     self.declare_parameter("xy_clip_limits", [0.0] * 4)
     self.declare_parameter("xy_filter_limits", [0.0] * 4)
+    self.declare_parameter("set_fixed_z", True)
 
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(SpatialBallArray, "balls_map", 10)
@@ -40,6 +41,9 @@ class Base2MapCoordinateTransform(Node):
     )
     self.baselink_pose_subscriber  # prevent unused variable warning
 
+    self.__set_fixed_z = (
+      self.get_parameter("set_fixed_z").get_parameter_value().bool_value
+    )
     self.ball_diameter = (
       self.get_parameter("ball_diameter").get_parameter_value().double_value
     )
@@ -94,7 +98,10 @@ class Base2MapCoordinateTransform(Node):
 
       ball_map_msg.position.x = float(ball_map_xyz[0])
       ball_map_msg.position.y = float(ball_map_xyz[1])
-      ball_map_msg.position.z = float(ball_map_xyz[2])
+      ball_map_msg.position.z = self.ball_diameter / 2
+
+      if not self.__set_fixed_z:
+        ball_map_msg.position.z = float(ball_map_xyz[2])
 
       balls_map_msg.spatial_balls.append(ball_map_msg)
 
