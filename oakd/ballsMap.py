@@ -27,6 +27,10 @@ class Base2MapCoordinateTransform(Node):
     self.declare_parameter("xy_clip_limits", [0.0] * 4)
     self.declare_parameter("xy_filter_limits", [0.0] * 4)
     self.declare_parameter("set_fixed_z", True)
+    self.declare_parameter("set_delta_tf_compensation", False)
+
+    odom_qos_profile = QoSProfile(depth=10)
+    odom_qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(SpatialBallArray, "balls_map", 10)
@@ -36,6 +40,17 @@ class Base2MapCoordinateTransform(Node):
     )
     self.balls_baselink_subscriber  # prevent unused variable warning
 
+    self.baselink_pose_subscriber = self.create_subscription(
+      Odometry,
+      "/odometry/filtered",
+      self.baselink_pose_callback,
+      qos_profile=odom_qos_profile,
+    )
+    self.baselink_pose_subscriber  # prevent unused variable warning
+
+    self.__set_delta_tf_compensation = (
+      self.get_parameter("set_delta_tf_compensation").get_parameter_value().bool_value
+    )
     self.__set_fixed_z = (
       self.get_parameter("set_fixed_z").get_parameter_value().bool_value
     )
@@ -58,22 +73,30 @@ class Base2MapCoordinateTransform(Node):
     self.xy_clip_limits = XY_limits(*xy_clip_limits)
     self.xy_filter_limits = XY_limits(*xy_filter_limits)
 
-    self.translation_map2base = None
-    self.quaternion_map2base = None
+    self.translation_map2base_current = None
+    self.quaternion_map2base_current = None
+    self.proj_map2base_current = None
 
-    self.proj_map2base = None
+    self.proj_map2base_capture = None
 
     self.get_logger().info("Baselink2map coordinate transformation node started.")
 
   def balls_baselink_cb(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
-    self.baselink_pose_callback(msg.pose_capture)
+    if self.proj_map2base_current is None:
+      return
 
+    self.proj_map2base_capture = self.create_projection_matrix(msg.pose_capture)
+
+    self.get_logger().info("Received balls_baselink message")
     balls_map_msg = SpatialBallArray()
     balls_map_msg.pose_capture = msg.pose_capture
     balls_map_msg.header.stamp = msg.header.stamp
     balls_map_msg.header.frame_id = "map"
     # breakpoint()
+
+    delta_tf = self.get_delta_tf()
+
     for ball in msg.spatial_balls:
       ball_map_msg = SpatialBall()
       ball_map_msg = ball
@@ -93,12 +116,22 @@ class Base2MapCoordinateTransform(Node):
           self.xy_clip_limits.ymax - self.ball_diameter / 2,
         )
 
+      if not self.__set_fixed_z:
+        ball_map_xyz[2] = self.ball_diameter / 2
+
+      if self.__set_delta_tf_compensation:
+        ball_map_homogeneous = ball_map_xyz.tolist()
+        ball_map_homogeneous.append(1.0)
+        ball_map_xyz = np.dot(delta_tf, np.array(ball_map_homogeneous).reshape((-1, 1)))
+        ball_map_xyz = ball_map_xyz / ball_map_xyz[3]
+        ball_map_xyz = ball_map_xyz[:3].ravel()
+
       ball_map_msg.position.x = float(ball_map_xyz[0])
       ball_map_msg.position.y = float(ball_map_xyz[1])
-      ball_map_msg.position.z = self.ball_diameter / 2
+      ball_map_msg.position.z = float(ball_map_xyz[2])
 
-      if not self.__set_fixed_z:
-        ball_map_msg.position.z = float(ball_map_xyz[2])
+      if self.__set_fixed_z:
+        ball_map_msg.position.z = self.ball_diameter / 2
 
       balls_map_msg.spatial_balls.append(ball_map_msg)
 
@@ -106,6 +139,7 @@ class Base2MapCoordinateTransform(Node):
       balls_map_msg.spatial_balls = self.filter_balls(balls_map_msg.spatial_balls)
 
     self.balls_map_publisher.publish(balls_map_msg)
+    self.get_logger().info("Published balls_map message")
     return
 
   def filter_balls(self, balls):
@@ -125,7 +159,7 @@ class Base2MapCoordinateTransform(Node):
     baselink_point.append(1.0)
     baselink_homogeneous_point = np.array(baselink_point, dtype=np.float32)
     map_point_homogeneous = np.dot(
-      self.proj_map2base, baselink_homogeneous_point.reshape((-1, 1))
+      self.proj_map2base_capture, baselink_homogeneous_point.reshape((-1, 1))
     )
 
     # dehomogenize
@@ -134,20 +168,48 @@ class Base2MapCoordinateTransform(Node):
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     """Updates the pose of baselink w.r.t. map"""
-    self.translation_map2base = np.zeros(3)
-    self.translation_map2base[0] = pose_msg.pose.pose.position.x
-    self.translation_map2base[1] = pose_msg.pose.pose.position.y
-    self.translation_map2base[2] = pose_msg.pose.pose.position.z
+    self.translation_map2base_current = np.zeros(3)
+    self.translation_map2base_current[0] = pose_msg.pose.pose.position.x
+    self.translation_map2base_current[1] = pose_msg.pose.pose.position.y
+    self.translation_map2base_current[2] = pose_msg.pose.pose.position.z
 
-    self.quaternion_map2base = np.zeros(4)
-    self.quaternion_map2base[0] = pose_msg.pose.pose.orientation.x
-    self.quaternion_map2base[1] = pose_msg.pose.pose.orientation.y
-    self.quaternion_map2base[2] = pose_msg.pose.pose.orientation.z
-    self.quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
+    self.quaternion_map2base_current = np.zeros(4)
+    self.quaternion_map2base_current[0] = pose_msg.pose.pose.orientation.x
+    self.quaternion_map2base_current[1] = pose_msg.pose.pose.orientation.y
+    self.quaternion_map2base_current[2] = pose_msg.pose.pose.orientation.z
+    self.quaternion_map2base_current[3] = pose_msg.pose.pose.orientation.w
 
-    self.proj_map2base = np.eye(4)
-    self.proj_map2base[:3, :3] = R.from_quat(self.quaternion_map2base).as_matrix()
-    self.proj_map2base[:3, 3] = self.translation_map2base
+    self.proj_map2base_current = np.eye(4)
+    self.proj_map2base_current[:3, :3] = R.from_quat(
+      self.quaternion_map2base_current
+    ).as_matrix()
+    self.proj_map2base_current[:3, 3] = self.translation_map2base_current
+
+  def create_projection_matrix(self, pose_msg: Odometry):
+    """Create the projection matrix from the pose message"""
+    translation = np.zeros(3)
+    translation[0] = pose_msg.pose.pose.position.x
+    translation[1] = pose_msg.pose.pose.position.y
+    translation[2] = pose_msg.pose.pose.position.z
+
+    quaternion = np.zeros(4)
+    quaternion[0] = pose_msg.pose.pose.orientation.x
+    quaternion[1] = pose_msg.pose.pose.orientation.y
+    quaternion[2] = pose_msg.pose.pose.orientation.z
+    quaternion[3] = pose_msg.pose.pose.orientation.w
+
+    proj = np.eye(4)
+    proj[:3, :3] = R.from_quat(quaternion).as_matrix()
+    proj[:3, 3] = translation
+    return proj
+
+  def get_delta_tf(self):
+    """Get the delta transformation between the current and previous pose"""
+    delta_tf = np.dot(
+      self.proj_map2base_current,
+      np.linalg.inv(self.proj_map2base_capture),
+    )
+    return delta_tf
 
 
 def main(args=None):
