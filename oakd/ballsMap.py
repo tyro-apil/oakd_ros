@@ -76,6 +76,8 @@ class Base2MapCoordinateTransform(Node):
       return
 
     balls_map_msg = SpatialBallArray()
+    balls_map_msg.header.stamp = self.get_clock().now().to_msg()
+    balls_map_msg.header.frame_id = "map"
     # breakpoint()
     for ball in msg.spatial_balls:
       ball_map_msg = SpatialBall()

@@ -170,7 +170,7 @@ class SpatialCalculator(Node):
     # Reset old data
     balls_cam_msg = SpatialBallArray()
     balls_cam_msg.header.stamp = self.get_clock().now().to_msg()
-    balls_cam_msg.header.frame_id = ""
+    balls_cam_msg.header.frame_id = "oak_rgb_camera_link_optical"
 
     depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
     # self.get_logger().info(f"Received depth image with shape {depthFrame.shape}")
