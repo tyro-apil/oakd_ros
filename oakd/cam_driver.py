@@ -7,8 +7,15 @@ import depthai as dai
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge
+from nav_msgs.msg import Odometry
+from oakd_msgs.msg import ImagePose
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from rclpy.qos import (
+  QoSDurabilityPolicy,
+  QoSHistoryPolicy,
+  QoSProfile,
+  QoSReliabilityPolicy,
+)
 
 
 def paddedResize(image, target_size, pad_color=(0, 0, 0)):
@@ -63,9 +70,25 @@ class DepthAICameraHandler(Node):
     self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
     self.alpha_ = None
 
+    image_qos_profile = QoSProfile(
+      reliability=QoSReliabilityPolicy.BEST_EFFORT,
+      history=QoSHistoryPolicy.KEEP_LAST,
+      durability=QoSDurabilityPolicy.VOLATILE,
+      depth=1,
+    )
+
     # Create a publisher for the RGB images
-    self.rgb_publisher_ = self.create_publisher(Image, "rgb/rect", 10)
-    self.depth_publisher_ = self.create_publisher(Image, "stereo/depth", 10)
+    self.rgb_publisher_ = self.create_publisher(
+      ImagePose, "rgb/rect", qos_profile=image_qos_profile
+    )
+    self.depth_publisher_ = self.create_publisher(
+      ImagePose, "stereo/depth", qos_profile=image_qos_profile
+    )
+    self.odom_subscriber = self.create_subscription(
+      Odometry, "/odometry/filtered", self.odom_callback, qos_profile=image_qos_profile
+    )
+
+    self.odom_msg = Odometry()
     self.bridge = CvBridge()
 
     # Create pipeline
@@ -152,6 +175,9 @@ class DepthAICameraHandler(Node):
     # Create a timer to periodically call the timer_callback function
     self.timer = self.create_timer(0.05, self.timer_callback)
 
+    self.rgb_img_pose = ImagePose()
+    self.depth_img_pose = ImagePose()
+
   def timer_callback(self):
     inRgb = (
       self.qRgb.tryGet()
@@ -174,8 +200,12 @@ class DepthAICameraHandler(Node):
       # self.get_logger().info(f'RGB frame shape {rgb_frame.shape} Depth frame shape {depth_frame.shape}')
       rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(rgb_frame, encoding="bgr8")
       depthImg_ros_msg = self.bridge.cv2_to_imgmsg(depth_frame, encoding="16UC1")
-      self.rgb_publisher_.publish(rgbImg_ros_msg)
-      self.depth_publisher_.publish(depthImg_ros_msg)
+      self.rgb_img_pose.image = rgbImg_ros_msg
+      self.rgb_img_pose.pose_capture = self.odom_msg
+      self.depth_img_pose.image = depthImg_ros_msg
+      self.depth_img_pose.pose_capture = self.odom_msg
+      self.rgb_publisher_.publish(self.rgb_img_pose)
+      self.depth_publisher_.publish(self.depth_img_pose)
 
 
 def main(args=None):
