@@ -22,7 +22,6 @@ def generate_launch_description():
   pose_topic_cmd = DeclareLaunchArgument(
     "pose_topic",
     default_value="/odometry/filtered",
-    description="Name of the pose topic of map2base transform",
   )
 
   depth_image_topic = LaunchConfiguration("depth_image_topic")

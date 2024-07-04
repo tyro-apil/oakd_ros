@@ -17,6 +17,13 @@ def generate_launch_description():
     get_package_share_directory("oakd"), "config", "cam_driver.yaml"
   )
 
+  pose_topic = LaunchConfiguration("pose_topic")
+  pose_topic_cmd = DeclareLaunchArgument(
+    "pose_topic",
+    default_value="/odometry/filtered",
+    description="Name of the pose topic of map2base transform",
+  )
+
   namespace = LaunchConfiguration("namespace")
   namespace_cmd = DeclareLaunchArgument(
     "namespace", default_value="", description="Name of the namespace"
@@ -52,7 +59,11 @@ def generate_launch_description():
     namespace=namespace,
     name="driver_node",
     parameters=[camera_config],
-    remappings=[("rgb/rect", rgb_image_topic), ("stereo/depth", depth_image_topic)],
+    remappings=[
+      ("rgb/rect", rgb_image_topic),
+      ("stereo/depth", depth_image_topic),
+      ("/odometry/filtered", pose_topic),
+    ],
   )
 
   camera_info_node_cmd = Node(
@@ -67,6 +78,7 @@ def generate_launch_description():
   ld = LaunchDescription()
   # Add arguments
   ld.add_action(namespace_cmd)
+  ld.add_action(pose_topic_cmd)
   ld.add_action(camera_info_topic_cmd)
   ld.add_action(rgb_image_topic_cmd)
   ld.add_action(depth_image_topic_cmd)
