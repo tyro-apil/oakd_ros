@@ -26,6 +26,7 @@ def generate_launch_description():
       "rgb_image_topic": input_image_topic,
       "depth_image_topic": depth_image_topic,
       "namespace": namespace,
+      "pose_topic": baselink_pose_topic,
     }.items(),
   )
 
@@ -56,9 +57,9 @@ def generate_launch_description():
     ),
     launch_arguments={
       "depth_image_topic": depth_image_topic,
-      "pose_topic": baselink_pose_topic,
       "namespace": namespace,
       "tracking_topic": namespace + "/yolo/" + tracking_topic,
+      "pose_topic": baselink_pose_topic,
     }.items(),
   )
 
@@ -70,7 +71,6 @@ def generate_launch_description():
       ]
     ),
     launch_arguments={
-      "pose_topic": baselink_pose_topic,
       "namespace": namespace,
       "state_n_goalpose_topic": state_n_goalpose_topic,
       "ball_goalpose_topic": ball_goalpose_topic,
