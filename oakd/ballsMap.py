@@ -5,7 +5,10 @@ import rclpy
 from nav_msgs.msg import Odometry
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.qos import (
+  QoSProfile,
+  QoSReliabilityPolicy,
+)
 from scipy.spatial.transform import Rotation as R
 
 
@@ -32,14 +35,6 @@ class Base2MapCoordinateTransform(Node):
       SpatialBallArray, "balls_baselink", self.balls_baselink_cb, 10
     )
     self.balls_baselink_subscriber  # prevent unused variable warning
-
-    self.baselink_pose_subscriber = self.create_subscription(
-      Odometry,
-      "/odometry/filtered",
-      self.baselink_pose_callback,
-      qos_profile=qos_profile,
-    )
-    self.baselink_pose_subscriber  # prevent unused variable warning
 
     self.__set_fixed_z = (
       self.get_parameter("set_fixed_z").get_parameter_value().bool_value
@@ -72,11 +67,11 @@ class Base2MapCoordinateTransform(Node):
 
   def balls_baselink_cb(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
-    if self.proj_map2base is None:
-      return
+    self.baselink_pose_callback(msg.pose_capture)
 
     balls_map_msg = SpatialBallArray()
-    balls_map_msg.header.stamp = self.get_clock().now().to_msg()
+    balls_map_msg.pose_capture = msg.pose_capture
+    balls_map_msg.header.stamp = msg.header.stamp
     balls_map_msg.header.frame_id = "map"
     # breakpoint()
     for ball in msg.spatial_balls:

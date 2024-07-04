@@ -5,9 +5,8 @@ import message_filters
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge
-from oakd_msgs.msg import SpatialBall, SpatialBallArray
+from oakd_msgs.msg import ImagePose, SpatialBall, SpatialBallArray
 from rclpy.node import Node
-from sensor_msgs.msg import Image
 from yolov8_msgs.msg import BoundingBox2D, DetectionArray
 
 
@@ -128,7 +127,7 @@ class SpatialCalculator(Node):
     )
 
     raw_img_sub = message_filters.Subscriber(
-      self, Image, "stereo/depth", qos_profile=10
+      self, ImagePose, "stereo/depth", qos_profile=10
     )  # subscriber to raw depth image message
     detections_sub = message_filters.Subscriber(
       self, DetectionArray, "yolo/tracking", qos_profile=10
@@ -166,13 +165,14 @@ class SpatialCalculator(Node):
 
     self.get_logger().info("SpatialCalculator node started.")
 
-  def detections_cb(self, depthImg_msg: Image, detections_msg: DetectionArray):
+  def detections_cb(self, depthImg_msg: ImagePose, detections_msg: DetectionArray):
     # Reset old data
     balls_cam_msg = SpatialBallArray()
-    balls_cam_msg.header.stamp = self.get_clock().now().to_msg()
+    balls_cam_msg.pose_capture = detections_msg.pose_capture
+    balls_cam_msg.header.stamp = detections_msg.header.stamp
     balls_cam_msg.header.frame_id = "oak_rgb_camera_link_optical"
 
-    depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
+    depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg.image)
     # self.get_logger().info(f"Received depth image with shape {depthFrame.shape}")
 
     detections = detections_msg.detections

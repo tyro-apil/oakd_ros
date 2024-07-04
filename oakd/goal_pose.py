@@ -52,13 +52,6 @@ class GoalPose(Node):
       PoseStamped, "/ball_pose_topic", qos_profile=qos_profile
     )
     self.target_publisher = self.create_publisher(SpatialBall, "target_ball", 10)
-    self.baselink_pose_subscriber = self.create_subscription(
-      Odometry,
-      "/odometry/filtered",
-      self.baselink_pose_callback,
-      qos_profile=qos_profile,
-    )
-    self.baselink_pose_subscriber
     self.balls_baselink_subscriber = self.create_subscription(
       SpatialBallArray, "balls_map", self.balls_msg_received_callback, 10
     )
@@ -119,9 +112,7 @@ class GoalPose(Node):
     return
 
   def balls_msg_received_callback(self, SpatialBalls_msg: SpatialBallArray):
-    if self.translation_map2base is None:
-      self.get_logger().info("Waiting for baselink pose...")
-      return
+    self.baselink_pose_callback(SpatialBalls_msg.pose_capture)
 
     team_colored_balls = self.filter_balls(SpatialBalls_msg.spatial_balls)
     self.get_logger().info(
@@ -139,6 +130,10 @@ class GoalPose(Node):
     goalPose_map = self.get_goalpose_map(target_ball_location)
 
     self.set_goalpose_map(goalPose_map)
+    #######################
+    self.goalpose_map.header.stamp = SpatialBalls_msg.header.stamp
+    self.goalpose_map.header.frame_id = "map"
+    #######################
     self.set_ball_tracking_state(True)
     self.set_tracked_id(target_ball_id)
     self.set_target_ball_location(target_ball_location)
