@@ -7,6 +7,12 @@ import rclpy
 from cv_bridge import CvBridge
 from oakd_msgs.msg import ImagePose, SpatialBall, SpatialBallArray
 from rclpy.node import Node
+from rclpy.qos import (
+  QoSDurabilityPolicy,
+  QoSHistoryPolicy,
+  QoSProfile,
+  QoSReliabilityPolicy,
+)
 from yolov8_msgs.msg import BoundingBox2D, DetectionArray
 
 
@@ -126,8 +132,15 @@ class SpatialCalculator(Node):
       SpatialBallArray, "balls_cam", 10
     )
 
+    image_qos_profile = QoSProfile(
+      reliability=QoSReliabilityPolicy.BEST_EFFORT,
+      history=QoSHistoryPolicy.KEEP_LAST,
+      durability=QoSDurabilityPolicy.VOLATILE,
+      depth=1,
+    )
+
     raw_img_sub = message_filters.Subscriber(
-      self, ImagePose, "stereo/depth", qos_profile=10
+      self, ImagePose, "stereo/depth", qos_profile=image_qos_profile
     )  # subscriber to raw depth image message
     detections_sub = message_filters.Subscriber(
       self, DetectionArray, "yolo/tracking", qos_profile=10
