@@ -26,7 +26,6 @@ class GoalPose(Node):
 
     self.declare_parameter("clamp_goalpose", True)
     self.declare_parameter("yaw_for_corners", True)
-    self.declare_parameter("consistent_target", False)
     self.declare_parameter("yaw_90", False)
 
     self.declare_parameter("x_intake_offset", 0.60)
@@ -88,9 +87,6 @@ class GoalPose(Node):
     self.__yaw_for_corners = (
       self.get_parameter("yaw_for_corners").get_parameter_value().bool_value
     )
-    self.__consistent_target = (
-      self.get_parameter("consistent_target").get_parameter_value().bool_value
-    )
     self.__yaw_90 = self.get_parameter("yaw_90").get_parameter_value().bool_value
 
     self.translation_map2base = None
@@ -120,12 +116,12 @@ class GoalPose(Node):
 
   def balls_msg_received_callback(self, SpatialBalls_msg: SpatialBallArray):
     if self.translation_map2base is None:
-      self.get_logger().info("Waiting for baselink pose...")
+      # self.get_logger().info("Waiting for baselink pose...")
       return
 
     team_colored_balls = self.filter_balls(SpatialBalls_msg.spatial_balls)
     self.get_logger().info(
-      f"deteted: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
+      f"detected: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
     )
 
     if len(team_colored_balls) == 0:
@@ -133,15 +129,23 @@ class GoalPose(Node):
       self.update_state_msg()
       return
 
-    target_ball_id, target_ball_location = self.get_closest_ball(team_colored_balls)
-    self.set_target_ball(target_ball_id, target_ball_location)
+    if self.tracked_id is not None and self.tracked_id in [
+      ball.tracker_id for ball in team_colored_balls
+    ]:
+      for ball in team_colored_balls:
+        if ball.tracker_id == self.tracked_id:
+          self.target_ball_location = (ball.position.x, ball.position.y)
+          self.set_target_ball(self.tracked_id, self.target_ball_location)
+    else:
+      self.tracked_id, self.target_ball_location = self.get_closest_ball(
+        team_colored_balls
+      )
+      self.set_target_ball(self.tracked_id, self.target_ball_location)
 
-    goalPose_map = self.get_goalpose_map(target_ball_location)
+    goalPose_map = self.get_goalpose_map()
 
     self.set_goalpose_map(goalPose_map)
     self.set_ball_tracking_state(True)
-    self.set_tracked_id(target_ball_id)
-    self.set_target_ball_location(target_ball_location)
     self.update_state_msg()
     return
 
@@ -164,17 +168,17 @@ class GoalPose(Node):
     )
     return sqrt(base2ball_vector[0] ** 2 + base2ball_vector[1] ** 2)
 
-  def get_goalpose_map(self, target_ball_location):
+  def get_goalpose_map(self):
     goalpose_map = PoseStamped()
     goalpose_map.header.stamp = self.get_clock().now().to_msg()
     goalpose_map.header.frame_id = "map"
 
-    yaw = self.get_goalPose_yaw(target_ball_location)
+    yaw = self.get_goalPose_yaw(self.target_ball_location)
     target_map = [0.0] * 3
-    target_map[0] = target_ball_location[0] + (
+    target_map[0] = self.target_ball_location[0] + (
       -self.__x_intake_offset * cos(yaw) - self.__y_intake_offset * sin(yaw)
     )
-    target_map[1] = target_ball_location[1] + (
+    target_map[1] = self.target_ball_location[1] + (
       -self.__x_intake_offset * sin(yaw) + self.__y_intake_offset * cos(yaw)
     )
 
