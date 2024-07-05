@@ -168,17 +168,17 @@ class GoalPose(Node):
     )
     return sqrt(base2ball_vector[0] ** 2 + base2ball_vector[1] ** 2)
 
-  def get_goalpose_map(self, target_ball_location):
+  def get_goalpose_map(self):
     goalpose_map = PoseStamped()
     goalpose_map.header.stamp = self.get_clock().now().to_msg()
     goalpose_map.header.frame_id = "map"
 
-    yaw = self.get_goalPose_yaw(target_ball_location)
+    yaw = self.get_goalPose_yaw(self.target_ball_location)
     target_map = [0.0] * 3
-    target_map[0] = target_ball_location[0] + (
+    target_map[0] = self.target_ball_location[0] + (
       -self.__x_intake_offset * cos(yaw) - self.__y_intake_offset * sin(yaw)
     )
-    target_map[1] = target_ball_location[1] + (
+    target_map[1] = self.target_ball_location[1] + (
       -self.__x_intake_offset * sin(yaw) + self.__y_intake_offset * cos(yaw)
     )
 
