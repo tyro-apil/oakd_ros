@@ -24,6 +24,7 @@ class Base2MapCoordinateTransform(Node):
     self.declare_parameter("xy_clip_limits", [0.0] * 4)
     self.declare_parameter("xy_filter_limits", [0.0] * 4)
     self.declare_parameter("set_fixed_z", True)
+    self.declare_parameter("decimal_accuracy", 3)
 
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(SpatialBallArray, "balls_map", 10)
@@ -41,6 +42,9 @@ class Base2MapCoordinateTransform(Node):
     )
     self.baselink_pose_subscriber  # prevent unused variable warning
 
+    self.__decimal_accuracy = (
+      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
+    )
     self.__set_fixed_z = (
       self.get_parameter("set_fixed_z").get_parameter_value().bool_value
     )
@@ -98,12 +102,12 @@ class Base2MapCoordinateTransform(Node):
           self.xy_clip_limits.ymax - self.ball_diameter / 2,
         )
 
-      ball_map_msg.position.x = float(ball_map_xyz[0])
-      ball_map_msg.position.y = float(ball_map_xyz[1])
-      ball_map_msg.position.z = self.ball_diameter / 2
+      ball_map_msg.position.x = round(float(ball_map_xyz[0]), self.__decimal_accuracy)
+      ball_map_msg.position.y = round(float(ball_map_xyz[1]), self.__decimal_accuracy)
+      ball_map_msg.position.z = round(self.ball_diameter / 2, self.__decimal_accuracy)
 
       if not self.__set_fixed_z:
-        ball_map_msg.position.z = float(ball_map_xyz[2])
+        ball_map_msg.position.z = round(float(ball_map_xyz[2]), self.__decimal_accuracy)
 
       balls_map_msg.spatial_balls.append(ball_map_msg)
 
@@ -140,15 +144,29 @@ class Base2MapCoordinateTransform(Node):
   def baselink_pose_callback(self, pose_msg: Odometry):
     """Updates the pose of baselink w.r.t. map"""
     self.translation_map2base = np.zeros(3)
-    self.translation_map2base[0] = pose_msg.pose.pose.position.x
-    self.translation_map2base[1] = pose_msg.pose.pose.position.y
-    self.translation_map2base[2] = pose_msg.pose.pose.position.z
+    self.translation_map2base[0] = round(
+      pose_msg.pose.pose.position.x, self.__decimal_accuracy
+    )
+    self.translation_map2base[1] = round(
+      pose_msg.pose.pose.position.y, self.__decimal_accuracy
+    )
+    self.translation_map2base[2] = round(
+      pose_msg.pose.pose.position.z, self.__decimal_accuracy
+    )
 
     self.quaternion_map2base = np.zeros(4)
-    self.quaternion_map2base[0] = pose_msg.pose.pose.orientation.x
-    self.quaternion_map2base[1] = pose_msg.pose.pose.orientation.y
-    self.quaternion_map2base[2] = pose_msg.pose.pose.orientation.z
-    self.quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
+    self.quaternion_map2base[0] = round(
+      pose_msg.pose.pose.orientation.x, self.__decimal_accuracy
+    )
+    self.quaternion_map2base[1] = round(
+      pose_msg.pose.pose.orientation.y, self.__decimal_accuracy
+    )
+    self.quaternion_map2base[2] = round(
+      pose_msg.pose.pose.orientation.z, self.__decimal_accuracy
+    )
+    self.quaternion_map2base[3] = round(
+      pose_msg.pose.pose.orientation.w, self.__decimal_accuracy
+    )
 
     self.proj_map2base = np.eye(4)
     self.proj_map2base[:3, :3] = R.from_quat(self.quaternion_map2base).as_matrix()
