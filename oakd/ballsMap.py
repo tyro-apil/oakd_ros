@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import List
 
 import numpy as np
 import rclpy
@@ -83,15 +84,22 @@ class Base2MapCoordinateTransform(Node):
 
     self.tf_map2base = None
     self.tf_matrix_map2base = None
+    self.tf_current2past_pose = None
 
     self.get_logger().info("Baselink2map coordinate transformation node started.")
 
   def balls_baselink_callback(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
     self.tf_map2base = self.get_map2base_tf(
-      self.__from_frame_rel, self.__to_frame_rel, msg.header.stamp
+      self.__from_frame_rel, self.__to_frame_rel, self.get_clock().now()
     )
-    if self.tf_map2base is None:
+    self.tf_current2past_pose = self.get_delta_tf(
+      self.__from_frame_rel,
+      self.__to_frame_rel,
+      self.get_clock().now(),
+      msg.header.stamp,
+    )
+    if self.tf_map2base is None or self.tf_current2past_pose is None:
       return
 
     self.tf_matrix_map2base = self.compute_tf_matrix(self.tf_map2base)
@@ -105,7 +113,10 @@ class Base2MapCoordinateTransform(Node):
       ball_map_msg = ball
 
       ball_baselink_xyz = [ball.position.x, ball.position.y, ball.position.z]
-      ball_map_xyz = self.base2map(ball_baselink_xyz)
+      ball_baselink_xyz = self.convert_coordinate(
+        self.tf_current2past_pose, ball_baselink_xyz
+      ).tolist()
+      ball_map_xyz = self.convert_coordinate(self.tf_map2base, ball_baselink_xyz)
 
       if self.__clip_ball_xy:
         ball_map_xyz[0] = np.clip(
@@ -158,6 +169,14 @@ class Base2MapCoordinateTransform(Node):
     map_point = map_point_homogeneous / map_point_homogeneous[3]
     return map_point[:3].ravel()
 
+  def convert_coordinate(self, tf_matrix: np.ndarray, point: List[float]) -> np.ndarray:
+    point.append(1.0)
+    homogeneous_point = np.array(point, dtype=np.float32)
+    converted_point = np.dot(tf_matrix, homogeneous_point.reshape((-1, 1)))
+    # dehomogenize
+    point = converted_point / converted_point[3]
+    return point[:3].ravel()
+
   def baselink_pose_callback(self, pose_msg: Odometry):
     """Updates the pose of baselink w.r.t. map"""
     self.translation_map2base = np.zeros(3)
@@ -196,11 +215,30 @@ class Base2MapCoordinateTransform(Node):
       t = self.tf_buffer.lookup_transform(
         from_frame,
         to_frame,
-        time,
-        timeout=Duration(seconds=0.005),
+        time=time,
+        timeout=Duration(seconds=0.003),
       )
     except TransformException as ex:
       self.get_logger().info(f"Could not transform {from_frame} to {to_frame}: {ex}")
+      return None
+    return t
+
+  def get_delta_tf(
+    self, from_frame: str, to_frame: str, time_current: Time, time_past: Time
+  ) -> TransformStamped:
+    try:
+      t = self.tf_buffer.lookup_transform_full(
+        to_frame,
+        time_current,
+        to_frame,
+        time_past,
+        from_frame,
+        Duration(seconds=0.003),
+      )
+    except TransformException as ex:
+      self.get_logger().info(
+        f"Could not transform {to_frame} from current to past: {ex}"
+      )
       return None
     return t
 
