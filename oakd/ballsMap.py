@@ -2,10 +2,12 @@ from collections import namedtuple
 
 import numpy as np
 import rclpy
+from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.time import Duration, Time
 from scipy.spatial.transform import Rotation as R
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
@@ -38,17 +40,17 @@ class Base2MapCoordinateTransform(Node):
     self.balls_map_publisher = self.create_publisher(SpatialBallArray, "balls_map", 10)
 
     self.balls_baselink_subscriber = self.create_subscription(
-      SpatialBallArray, "balls_baselink", self.balls_baselink_cb, 10
+      SpatialBallArray, "balls_baselink", self.balls_baselink_callback, 10
     )
     self.balls_baselink_subscriber  # prevent unused variable warning
 
-    self.baselink_pose_subscriber = self.create_subscription(
-      Odometry,
-      "/odometry/filtered",
-      self.baselink_pose_callback,
-      qos_profile=qos_profile,
-    )
-    self.baselink_pose_subscriber  # prevent unused variable warning
+    # self.baselink_pose_subscriber = self.create_subscription(
+    #   Odometry,
+    #   "/odometry/filtered",
+    #   self.baselink_pose_callback,
+    #   qos_profile=qos_profile,
+    # )
+    # self.baselink_pose_subscriber  # prevent unused variable warning
 
     self.__decimal_accuracy = (
       self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
@@ -77,15 +79,22 @@ class Base2MapCoordinateTransform(Node):
 
     self.translation_map2base = None
     self.quaternion_map2base = None
-
     self.proj_map2base = None
+
+    self.tf_map2base = None
+    self.tf_matrix_map2base = None
 
     self.get_logger().info("Baselink2map coordinate transformation node started.")
 
-  def balls_baselink_cb(self, msg: SpatialBallArray):
+  def balls_baselink_callback(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
-    if self.proj_map2base is None:
+    self.tf_map2base = self.get_map2base_tf(
+      self.__from_frame_rel, self.__to_frame_rel, msg.header.stamp
+    )
+    if self.tf_map2base is None:
       return
+
+    self.tf_matrix_map2base = self.compute_tf_matrix(self.tf_map2base)
 
     balls_map_msg = SpatialBallArray()
     balls_map_msg.header.stamp = msg.header.stamp
@@ -142,7 +151,7 @@ class Base2MapCoordinateTransform(Node):
     baselink_point.append(1.0)
     baselink_homogeneous_point = np.array(baselink_point, dtype=np.float32)
     map_point_homogeneous = np.dot(
-      self.proj_map2base, baselink_homogeneous_point.reshape((-1, 1))
+      self.tf_matrix_map2base, baselink_homogeneous_point.reshape((-1, 1))
     )
 
     # dehomogenize
@@ -179,6 +188,38 @@ class Base2MapCoordinateTransform(Node):
     self.proj_map2base = np.eye(4)
     self.proj_map2base[:3, :3] = R.from_quat(self.quaternion_map2base).as_matrix()
     self.proj_map2base[:3, 3] = self.translation_map2base
+
+  def get_map2base_tf(
+    self, from_frame: str, to_frame: str, time: Time
+  ) -> TransformStamped:
+    try:
+      t = self.tf_buffer.lookup_transform(
+        from_frame,
+        to_frame,
+        time,
+        timeout=Duration(seconds=0.005),
+      )
+    except TransformException as ex:
+      self.get_logger().info(f"Could not transform {from_frame} to {to_frame}: {ex}")
+      return None
+    return t
+
+  def compute_tf_matrix(self, tf: TransformStamped) -> np.ndarray:
+    tf_matrix = np.eye(4)
+    tf_matrix[:3, :3] = R.from_quat(
+      [
+        tf.transform.rotation.x,
+        tf.transform.rotation.y,
+        tf.transform.rotation.z,
+        tf.transform.rotation.w,
+      ]
+    ).as_matrix()
+    tf_matrix[:3, 3] = [
+      tf.transform.translation.x,
+      tf.transform.translation.y,
+      tf.transform.translation.z,
+    ]
+    return np.round(tf_matrix, self.__decimal_accuracy)
 
 
 def main(args=None):
