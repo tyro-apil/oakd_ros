@@ -121,6 +121,7 @@ class SpatialCalculator(Node):
     self.declare_parameter("coordinate_calc_method", "SinglePointDepth")
     self.declare_parameter("host_spatials_method", "bbox_center")
     self.declare_parameter("neighbourhood_pixels", 4)
+    self.declare_parameter("decimal_accuracy", 3)
 
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
@@ -134,6 +135,9 @@ class SpatialCalculator(Node):
       self, DetectionArray, "yolo/tracking", qos_profile=10
     )  # subscriber to detections message
 
+    self.__decimal_accuracy = (
+      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
+    )
     intrinsic_matrix_flat = (
       self.get_parameter("k").get_parameter_value().double_array_value
     )
@@ -203,9 +207,9 @@ class SpatialCalculator(Node):
 
       # Get 'Ball' type message for individual detection
       ball_msg = SpatialBall()
-      ball_msg.position.x = float(spatials["x"])
-      ball_msg.position.y = float(spatials["y"])
-      ball_msg.position.z = float(spatials["z"])
+      ball_msg.position.x = round(float(spatials["x"]), self.__decimal_accuracy)
+      ball_msg.position.y = round(float(spatials["y"]), self.__decimal_accuracy)
+      ball_msg.position.z = round(float(spatials["z"]), self.__decimal_accuracy)
 
       ball_msg.tracker_id = detection.id
       ball_msg.class_id = detection.class_id
