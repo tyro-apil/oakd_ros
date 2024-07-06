@@ -83,18 +83,17 @@ class Base2MapCoordinateTransform(Node):
     self.quaternion_map2base = None
     self.proj_map2base = None
 
-    self.tf_map2base = None
     self.tf_matrix_map2base = None
-    self.tf_current2past_pose = None
+    self.tf_matrix_current2past_pose = None
 
     self.get_logger().info("Baselink2map coordinate transformation node started.")
 
   def balls_baselink_callback(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
-    self.tf_map2base = self.get_map2base_tf(
+    tf_map2base = self.get_map2base_tf(
       self.__from_frame_rel, self.__to_frame_rel, Time(seconds=0, nanoseconds=0)
     )
-    self.tf_current2past_pose = self.get_delta_tf(
+    tf_current2past_pose = self.get_delta_tf(
       self.__from_frame_rel,
       self.__to_frame_rel,
       Time(seconds=0, nanoseconds=0),
@@ -103,7 +102,8 @@ class Base2MapCoordinateTransform(Node):
     if self.tf_map2base is None or self.tf_current2past_pose is None:
       return
 
-    self.tf_matrix_map2base = self.compute_tf_matrix(self.tf_map2base)
+    self.tf_matrix_map2base = self.compute_tf_matrix(tf_map2base)
+    self.tf_matrix_current2past_pose = self.compute_tf_matrix(tf_current2past_pose)
 
     balls_map_msg = SpatialBallArray()
     balls_map_msg.header.stamp = msg.header.stamp
@@ -115,9 +115,9 @@ class Base2MapCoordinateTransform(Node):
 
       ball_baselink_xyz = [ball.position.x, ball.position.y, ball.position.z]
       ball_baselink_xyz = self.convert_coordinate(
-        self.tf_current2past_pose, ball_baselink_xyz
+        self.tf_matrix_current2past_pose, ball_baselink_xyz
       ).tolist()
-      ball_map_xyz = self.convert_coordinate(self.tf_map2base, ball_baselink_xyz)
+      ball_map_xyz = self.convert_coordinate(self.tf_matrix_map2base, ball_baselink_xyz)
 
       if self.__clip_ball_xy:
         ball_map_xyz[0] = np.clip(
