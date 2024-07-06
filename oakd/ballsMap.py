@@ -1,4 +1,5 @@
 from collections import namedtuple
+from math import nan
 from typing import List
 
 import numpy as np
@@ -91,12 +92,12 @@ class Base2MapCoordinateTransform(Node):
   def balls_baselink_callback(self, msg: SpatialBallArray):
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
     self.tf_map2base = self.get_map2base_tf(
-      self.__from_frame_rel, self.__to_frame_rel, self.get_clock().now()
+      self.__from_frame_rel, self.__to_frame_rel, Time(seconds=0, nanoseconds=0)
     )
     self.tf_current2past_pose = self.get_delta_tf(
       self.__from_frame_rel,
       self.__to_frame_rel,
-      self.get_clock().now(),
+      Time(seconds=0, nanoseconds=0),
       msg.header.stamp,
     )
     if self.tf_map2base is None or self.tf_current2past_pose is None:
