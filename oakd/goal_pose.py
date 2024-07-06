@@ -102,6 +102,7 @@ class GoalPose(Node):
     self.tracked_id = None
     self.target_ball_location = None
     self.is_ball_tracked = Bool()
+    self.__msg_stamp = None
 
     self.get_logger().info("Goalpose node started")
 
@@ -132,6 +133,8 @@ class GoalPose(Node):
       self.set_ball_tracking_state(False)
       self.update_state_msg()
       return
+
+    self.__msg_stamp = SpatialBalls_msg.header.stamp
 
     if self.tracked_id is not None and self.tracked_id in [
       ball.tracker_id for ball in team_colored_balls
@@ -174,7 +177,7 @@ class GoalPose(Node):
 
   def get_goalpose_map(self):
     goalpose_map = PoseStamped()
-    goalpose_map.header.stamp = self.get_clock().now().to_msg()
+    goalpose_map.header.stamp = self.__msg_stamp
     goalpose_map.header.frame_id = "map"
 
     yaw = round(

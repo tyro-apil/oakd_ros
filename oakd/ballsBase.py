@@ -59,7 +59,7 @@ class Cam2BaseTransform(Node):
   def balls_cam_callback(self, msg: SpatialBallArray):
     # breakpoint()
     balls_base_msg = SpatialBallArray()
-    balls_base_msg.header.stamp = self.get_clock().now().to_msg()
+    balls_base_msg.header.stamp = msg.header.stamp
     balls_base_msg.header.frame_id = "base_link"
 
     for ball in msg.spatial_balls:

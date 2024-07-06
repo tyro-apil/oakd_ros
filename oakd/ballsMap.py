@@ -7,6 +7,9 @@ from oakd_msgs.msg import SpatialBall, SpatialBallArray
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from scipy.spatial.transform import Rotation as R
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 
 
 class Base2MapCoordinateTransform(Node):
@@ -17,6 +20,11 @@ class Base2MapCoordinateTransform(Node):
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
+
+    self.__to_frame_rel = "base_link"
+    self.__from_frame_rel = "map"
+    self.tf_buffer = Buffer()
+    self.tf_listener = TransformListener(self.tf_buffer, self)
 
     self.declare_parameter("ball_diameter", 0.190)
     self.declare_parameter("clip_ball_xy", False)
@@ -80,7 +88,7 @@ class Base2MapCoordinateTransform(Node):
       return
 
     balls_map_msg = SpatialBallArray()
-    balls_map_msg.header.stamp = self.get_clock().now().to_msg()
+    balls_map_msg.header.stamp = msg.header.stamp
     balls_map_msg.header.frame_id = "map"
     # breakpoint()
     for ball in msg.spatial_balls:
