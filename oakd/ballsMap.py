@@ -99,7 +99,7 @@ class Base2MapCoordinateTransform(Node):
       Time(seconds=0, nanoseconds=0),
       msg.header.stamp,
     )
-    if self.tf_map2base is None or self.tf_current2past_pose is None:
+    if tf_map2base is None or tf_current2past_pose is None:
       return
 
     self.tf_matrix_map2base = self.compute_tf_matrix(tf_map2base)
