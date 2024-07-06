@@ -169,6 +169,7 @@ class DepthAICameraHandler(Node):
 
     msg_header = Header()
     msg_header.stamp = self.get_clock().now().to_msg()
+    msg_header.frame_id = "oak_rgb_camera_link_optical"
 
     # Resize the opencv frames
     # rgb_frame = cv2.resize(rgb_frame, (1280, 720), interpolation=cv2.INTER_AREA)
