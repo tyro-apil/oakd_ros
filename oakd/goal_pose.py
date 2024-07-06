@@ -33,6 +33,7 @@ class GoalPose(Node):
 
     self.declare_parameter("safe_xy_limits", [0.0] * 4)
     self.declare_parameter("goalpose_limits", [0.0] * 4)
+    self.declare_parameter("decimal_accuracy", 3)
 
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
 
@@ -63,6 +64,9 @@ class GoalPose(Node):
     )
     self.balls_baselink_subscriber
 
+    self.__decimal_accuracy = (
+      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
+    )
     self.safe_xy_limits = (
       self.get_parameter("safe_xy_limits").get_parameter_value().double_array_value
     )
@@ -173,7 +177,9 @@ class GoalPose(Node):
     goalpose_map.header.stamp = self.get_clock().now().to_msg()
     goalpose_map.header.frame_id = "map"
 
-    yaw = self.get_goalPose_yaw(self.target_ball_location)
+    yaw = round(
+      self.get_goalPose_yaw(self.target_ball_location), self.__decimal_accuracy
+    )
     target_map = [0.0] * 3
     target_map[0] = self.target_ball_location[0] + (
       -self.__x_intake_offset * cos(yaw) - self.__y_intake_offset * sin(yaw)
@@ -185,15 +191,15 @@ class GoalPose(Node):
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
 
-    goalpose_map.pose.position.x = float(target_map[0])
-    goalpose_map.pose.position.y = float(target_map[1])
-    goalpose_map.pose.position.z = float(target_map[2])
+    goalpose_map.pose.position.x = round(float(target_map[0]), self.__decimal_accuracy)
+    goalpose_map.pose.position.y = round(float(target_map[1]), self.__decimal_accuracy)
+    goalpose_map.pose.position.z = round(float(target_map[2]), self.__decimal_accuracy)
 
     q_goalpose = R.from_euler("ZYX", [yaw, 0.0, 0.0]).as_quat()
-    goalpose_map.pose.orientation.x = q_goalpose[0]
-    goalpose_map.pose.orientation.y = q_goalpose[1]
-    goalpose_map.pose.orientation.z = q_goalpose[2]
-    goalpose_map.pose.orientation.w = q_goalpose[3]
+    goalpose_map.pose.orientation.x = round(q_goalpose[0], self.__decimal_accuracy)
+    goalpose_map.pose.orientation.y = round(q_goalpose[1], self.__decimal_accuracy)
+    goalpose_map.pose.orientation.z = round(q_goalpose[2], self.__decimal_accuracy)
+    goalpose_map.pose.orientation.w = round(q_goalpose[3], self.__decimal_accuracy)
 
     return goalpose_map
 

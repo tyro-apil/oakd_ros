@@ -9,6 +9,7 @@ import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from std_msgs.msg import Header
 
 
 def paddedResize(image, target_size, pad_color=(0, 0, 0)):
@@ -160,22 +161,31 @@ class DepthAICameraHandler(Node):
       self.qDepth.tryGet()
     )  # Non-blocking call, will return None if no new data has arrived
 
-    if inRgb is not None and inDepth is not None:
-      rgb_frame = inRgb.getCvFrame()
-      depth_frame = inDepth.getCvFrame()
+    if inRgb is None or inDepth is None:
+      return
 
-      # Resize the opencv frames
-      # rgb_frame = cv2.resize(rgb_frame, (1280, 720), interpolation=cv2.INTER_AREA)
-      depth_frame = cv2.resize(depth_frame, (1280, 720), interpolation=cv2.INTER_AREA)
-      # rgb_frame = paddedResize(rgb_frame, (480, 640))
-      # depth_frame = paddedResize(depth_frame, (480, 640))
+    rgb_frame = inRgb.getCvFrame()
+    depth_frame = inDepth.getCvFrame()
 
-      # Convert the frame to a ROS Image message and publish it
-      # self.get_logger().info(f'RGB frame shape {rgb_frame.shape} Depth frame shape {depth_frame.shape}')
-      rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(rgb_frame, encoding="bgr8")
-      depthImg_ros_msg = self.bridge.cv2_to_imgmsg(depth_frame, encoding="16UC1")
-      self.rgb_publisher_.publish(rgbImg_ros_msg)
-      self.depth_publisher_.publish(depthImg_ros_msg)
+    msg_header = Header()
+    msg_header.stamp = self.get_clock().now().to_msg()
+
+    # Resize the opencv frames
+    # rgb_frame = cv2.resize(rgb_frame, (1280, 720), interpolation=cv2.INTER_AREA)
+    depth_frame = cv2.resize(depth_frame, (1280, 720), interpolation=cv2.INTER_AREA)
+
+    # Convert the frame to a ROS Image message and publish it
+    # self.get_logger().info(f'RGB frame shape {rgb_frame.shape} Depth frame shape {depth_frame.shape}')
+    rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(
+      rgb_frame,
+      encoding="bgr8",
+      header=msg_header,
+    )
+    depthImg_ros_msg = self.bridge.cv2_to_imgmsg(
+      depth_frame, encoding="16UC1", header=msg_header
+    )
+    self.rgb_publisher_.publish(rgbImg_ros_msg)
+    self.depth_publisher_.publish(depthImg_ros_msg)
 
 
 def main(args=None):

@@ -2,3 +2,4 @@
   ros__parameters:
     team_color: "red"
     ball_diameter: 0.190
+    decimal_accuracy: 3

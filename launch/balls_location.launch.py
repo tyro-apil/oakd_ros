@@ -72,7 +72,7 @@ def generate_launch_description():
     executable="spatial_node",
     name="spatial_node",
     remappings=[("stereo/depth", depth_image_topic), ("yolo/tracking", tracking_topic)],
-    parameters=[camera_config, spatial_location_config],
+    parameters=[common_config, camera_config, spatial_location_config],
   )
 
   markers_node_cmd = Node(

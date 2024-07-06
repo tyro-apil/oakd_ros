@@ -14,7 +14,11 @@ class Cam2BaseTransform(Node):
 
     self.declare_parameter("extrapolate", False)
     self.declare_parameter("set_true_z", False)
+    self.declare_parameter("decimal_accuracy", 3)
 
+    self.__decimal_accuracy = (
+      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
+    )
     self.translation_base2cam = (
       self.get_parameter("base2cam_translation")
       .get_parameter_value()
@@ -68,12 +72,20 @@ class Cam2BaseTransform(Node):
       if self.__extrapolate:
         ball_baselink_xyz = self.extrapolate(ball_baselink_xyz)
 
-      ball_base_msg.position.x = float(ball_baselink_xyz[0])
-      ball_base_msg.position.y = float(ball_baselink_xyz[1])
-      ball_base_msg.position.z = float(self.BALL_DIAMETER / 2)
+      ball_base_msg.position.x = round(
+        float(ball_baselink_xyz[0]), self.__decimal_accuracy
+      )
+      ball_base_msg.position.y = round(
+        float(ball_baselink_xyz[1]), self.__decimal_accuracy
+      )
+      ball_base_msg.position.z = round(
+        float(self.BALL_DIAMETER / 2), self.__decimal_accuracy
+      )
 
       if self.__set_true_z:
-        ball_base_msg.position.z = float(ball_baselink_xyz[2])
+        ball_base_msg.position.z = round(
+          float(ball_baselink_xyz[2]), self.__decimal_accuracy
+        )
 
       balls_base_msg.spatial_balls.append(ball_base_msg)
 
