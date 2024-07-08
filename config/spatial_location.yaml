@@ -2,11 +2,11 @@
   ros__parameters:
     ## Location calculation method
     # Options: "SinglePointDepth", "HostSpatials"
-    coordinate_calc_method: "HostSpatials"
+    coordinate_calc_method: "SinglePointDepth"
 
     ## HostSpatials choices
     # Options: "bbox_center", "bbox_roi"
     host_spatials_method: "bbox_center"
 
     # Averaging neighboring pixels' depth for depth of a point
-    neighbourhood_pixels: 6
+    neighbourhood_pixels: 4
