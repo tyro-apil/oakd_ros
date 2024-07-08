@@ -128,11 +128,6 @@ class SpatialCalculator(Node):
     self.declare_parameter("host_spatials_method", "bbox_center")
     self.declare_parameter("neighbourhood_pixels", 4)
     self.declare_parameter("decimal_accuracy", 3)
-    self.declare_parameter("clip_z", False)
-    self.declare_parameter("thresh_low_depth", 0.400)
-    self.declare_parameter("thresh_high_depth", 5.000)
-    self.declare_parameter("width", 1280)
-    self.declare_parameter("height", 720)
 
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
@@ -165,24 +160,15 @@ class SpatialCalculator(Node):
     self.__host_spatials_method = (
       self.get_parameter("host_spatials_method").get_parameter_value().string_value
     )
-    self.neighbourhood_pixels = (
+    neighbourhood_pixels = (
       self.get_parameter("neighbourhood_pixels").get_parameter_value().integer_value
     )
-    self.__clip_z = self.get_parameter("clip_z").get_parameter_value().bool_value
-    self.thresh_low_depth = (
-      self.get_parameter("thresh_low_depth").get_parameter_value().double_value
-    ) * 1000
-    self.thresh_high_depth = (
-      self.get_parameter("thresh_high_depth").get_parameter_value().double_value
-    ) * 1000
-    self.img_width = self.get_parameter("width").get_parameter_value().integer_value
-    self.img_height = self.get_parameter("height").get_parameter_value().integer_value
 
     self.camera_info_handler = CameraInfoManager(
-      fx=intrinsic_matrix_flat[0],
-      fy=intrinsic_matrix_flat[4],
-      cx=intrinsic_matrix_flat[2],
-      cy=intrinsic_matrix_flat[5],
+      intrinsic_matrix_flat[0],
+      intrinsic_matrix_flat[4],
+      intrinsic_matrix_flat[2],
+      intrinsic_matrix_flat[5],
     )
 
     # synchronise callback of two independent subscriptions
@@ -193,7 +179,7 @@ class SpatialCalculator(Node):
 
     self.bridge = CvBridge()
     self.balls_cam_msg = SpatialBallArray()
-    self.hostSpatials = HostSpatialsCalc(self.neighbourhood_pixels)
+    self.hostSpatials = HostSpatialsCalc(neighbourhood_pixels)
 
     self.get_logger().info("SpatialCalculator node started.")
 
@@ -207,7 +193,7 @@ class SpatialCalculator(Node):
     # self.get_logger().info(f"Received depth image with shape {depthFrame.shape}")
 
     detections = detections_msg.detections
-    delta = int(self.neighbourhood_pixels / 2)
+
     for detection in detections:
       # Parse bbox
       bbox_xywh = self.parse_bbox(detection.bbox)
@@ -216,23 +202,8 @@ class SpatialCalculator(Node):
 
       match self.__coordinate_calc_method:
         case "SinglePointDepth":
-          roi = depthFrame[
-            max(0, center_xy[0] - delta),
-            max(0, center_xy[1] - delta),
-            min(self.img_width, center_xy[0] + delta),
-            min(self.img_height, center_xy[1] + delta),
-          ]
-          ####################
-          # inRange = (self.thresh_low_depth <= roi) & (roi <= self.thresh_high_depth)
-          # depth = np.mean(roi[inRange])
-          ####################
-          depth = np.mean(roi)
-          if self.__clip_z:
-            depth = np.clip(
-              depth, self.thresh_low_depth * 1000, self.thresh_high_depth * 1000
-            )
           spatials = self.camera_info_handler.get_spatial_location(
-            depth, center_xy[0], center_xy[1]
+            depthFrame[center_xy[1], center_xy[0]], center_xy[0], center_xy[1]
           )
 
         case "HostSpatials":

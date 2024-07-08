@@ -10,9 +10,3 @@
 
     # Averaging neighboring pixels' depth for depth of a point
     neighbourhood_pixels: 4
-
-    # In meters
-    thresh_high_depth: 7.000
-    thresh_low_depth: 0.500
-
-    clip_z: True
