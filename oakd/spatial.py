@@ -1,4 +1,6 @@
 import math
+from collections import deque
+from email.mime import image
 from typing import List
 
 import message_filters
@@ -146,13 +148,20 @@ class SpatialCalculator(Node):
       depth=1,
     )
 
-    raw_img_sub = message_filters.Subscriber(
-      self, Image, "stereo/depth", qos_profile=image_qos_profile
-    )  # subscriber to raw depth image message
-    detections_sub = message_filters.Subscriber(
-      self, DetectionArray, "yolo/tracking", qos_profile=10
-    )  # subscriber to detections message
+    self.depth_img_subscriber = self.create_subscription(
+      Image,
+      "stereo/depth",
+      self.depth_img_callback,
+      qos_profile=image_qos_profile,
+    )
+    self.detections_subscriber = self.create_subscription(
+      DetectionArray,
+      "yolo/tracking",
+      self.detections_callback,
+      qos_profile=10,
+    )
 
+    self.img_deque = deque()
     self.__decimal_accuracy = (
       self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
     )
@@ -185,25 +194,28 @@ class SpatialCalculator(Node):
       cy=intrinsic_matrix_flat[5],
     )
 
-    # synchronise callback of two independent subscriptions
-    self._synchronizer = message_filters.ApproximateTimeSynchronizer(
-      (raw_img_sub, detections_sub), 10, 0.05, True
-    )
-    self._synchronizer.registerCallback(self.detections_cb)
-
     self.bridge = CvBridge()
     self.balls_cam_msg = SpatialBallArray()
     self.hostSpatials = HostSpatialsCalc(self.neighbourhood_pixels)
 
     self.get_logger().info("SpatialCalculator node started.")
 
-  def detections_cb(self, depthImg_msg: Image, detections_msg: DetectionArray):
+  def depth_img_callback(self, depthImg_msg: Image):
+    ##############################
+    # In depthframe callback, append the received depth image to the deque
+    # No need for synchronization
+    # In detections callback, popleft the oldest depth image from the deque
+    # and process it with the detections
+    ##############################
+    self.img_deque.append(depthImg_msg.data)
+
+  def detections_callback(self, detections_msg: DetectionArray):
     # Reset old data
     balls_cam_msg = SpatialBallArray()
     balls_cam_msg.header.stamp = detections_msg.header.stamp
     balls_cam_msg.header.frame_id = "oak_rgb_camera_link_optical"
 
-    depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
+    depthFrame = self.img_deque.popleft()
     # self.get_logger().info(f"Received depth image with shape {depthFrame.shape}")
 
     detections = detections_msg.detections
