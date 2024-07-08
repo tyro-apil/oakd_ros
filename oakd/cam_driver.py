@@ -8,6 +8,12 @@ import numpy as np
 import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
+from rclpy.qos import (
+  QoSDurabilityPolicy,
+  QoSHistoryPolicy,
+  QoSProfile,
+  QoSReliabilityPolicy,
+)
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 
@@ -64,9 +70,20 @@ class DepthAICameraHandler(Node):
     self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
     self.alpha_ = None
 
+    image_qos_profile = QoSProfile(
+      reliability=QoSReliabilityPolicy.BEST_EFFORT,
+      history=QoSHistoryPolicy.KEEP_LAST,
+      durability=QoSDurabilityPolicy.VOLATILE,
+      depth=1,
+    )
+
     # Create a publisher for the RGB images
-    self.rgb_publisher_ = self.create_publisher(Image, "rgb/rect", 10)
-    self.depth_publisher_ = self.create_publisher(Image, "stereo/depth", 10)
+    self.rgb_publisher_ = self.create_publisher(
+      Image, "rgb/rect", qos_profile=image_qos_profile
+    )
+    self.depth_publisher_ = self.create_publisher(
+      Image, "stereo/depth", qos_profile=image_qos_profile
+    )
     self.bridge = CvBridge()
 
     # Create pipeline
