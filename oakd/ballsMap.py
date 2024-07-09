@@ -1,5 +1,4 @@
 from collections import namedtuple
-from math import nan
 from typing import List
 
 import numpy as np
