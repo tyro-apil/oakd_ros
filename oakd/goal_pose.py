@@ -7,18 +7,27 @@ from math import atan2, cos, pi, sin, sqrt
 
 import numpy as np
 import rclpy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 from nav_msgs.msg import Odometry
 from oakd_msgs.msg import SpatialBall, SpatialBallArray, StatePose
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.time import Duration, Time
 from scipy.spatial.transform import Rotation as R
 from std_msgs.msg import Bool
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 
 
 class GoalPose(Node):
   def __init__(self):
     super().__init__("goal_pose_node")
+
+    self.__to_frame_rel = "base_link"
+    self.__from_frame_rel = "map"
+    self.tf_buffer = Buffer()
+    self.tf_listener = TransformListener(self.tf_buffer, self)
 
     self.declare_parameter("timer_period_sec", 0.02)
     self.declare_parameter("team_color", "red")
@@ -52,13 +61,13 @@ class GoalPose(Node):
       PoseStamped, "/ball_pose_topic", qos_profile=qos_profile
     )
     self.target_publisher = self.create_publisher(SpatialBall, "target_ball", 10)
-    self.baselink_pose_subscriber = self.create_subscription(
-      Odometry,
-      "/odometry/filtered",
-      self.baselink_pose_callback,
-      qos_profile=qos_profile,
-    )
-    self.baselink_pose_subscriber
+    # self.baselink_pose_subscriber = self.create_subscription(
+    #   Odometry,
+    #   "/odometry/filtered",
+    #   self.baselink_pose_callback,
+    #   qos_profile=qos_profile,
+    # )
+    # self.baselink_pose_subscriber
     self.balls_baselink_subscriber = self.create_subscription(
       SpatialBallArray, "balls_map", self.balls_msg_received_callback, 10
     )
@@ -120,6 +129,9 @@ class GoalPose(Node):
     return
 
   def balls_msg_received_callback(self, SpatialBalls_msg: SpatialBallArray):
+    map2base_tf = self.get_tf("map", "base_link", Time(seconds=0, nanoseconds=0))
+    self.translation_map2base, self.quaternion_map2base = self.compute_pose(map2base_tf)
+
     if self.translation_map2base is None:
       # self.get_logger().info("Waiting for baselink pose...")
       return
@@ -237,6 +249,33 @@ class GoalPose(Node):
     )
     yaw = atan2(base_link2ball_vector[1], base_link2ball_vector[0])
     return yaw
+
+  def get_tf(self, from_frame: str, to_frame: str, time: Time) -> TransformStamped:
+    try:
+      t = self.tf_buffer.lookup_transform(
+        from_frame,
+        to_frame,
+        time=time,
+        timeout=Duration(seconds=0.003),
+      )
+    except TransformException as ex:
+      self.get_logger().info(f"Could not transform {from_frame} to {to_frame}: {ex}")
+      return None
+    return t
+
+  def compute_pose(self, tf: TransformStamped):
+    translation = np.zeros(3)
+    translation[0] = tf.transform.translation.x
+    translation[1] = tf.transform.translation.y
+    translation[2] = tf.transform.translation.z
+
+    quaternion = np.zeros(4)
+    quaternion[0] = tf.transform.rotation.x
+    quaternion[1] = tf.transform.rotation.y
+    quaternion[2] = tf.transform.rotation.z
+    quaternion[3] = tf.transform.rotation.w
+
+    return translation, quaternion
 
   def clamp_target(self, target_map):
     clampped_target = target_map
