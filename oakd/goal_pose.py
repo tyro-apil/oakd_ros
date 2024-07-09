@@ -40,6 +40,7 @@ class GoalPose(Node):
     self.declare_parameter("x_intake_offset", 0.60)
     self.declare_parameter("y_intake_offset", 0.15)
 
+    self.declare_parameter("offset_distance", 1.0)
     self.declare_parameter("safe_xy_limits", [0.0] * 4)
     self.declare_parameter("goalpose_limits", [0.0] * 4)
     self.declare_parameter("decimal_accuracy", 3)
@@ -61,13 +62,13 @@ class GoalPose(Node):
       PoseStamped, "/ball_pose_topic", qos_profile=qos_profile
     )
     self.target_publisher = self.create_publisher(SpatialBall, "target_ball", 10)
-    # self.baselink_pose_subscriber = self.create_subscription(
-    #   Odometry,
-    #   "/odometry/filtered",
-    #   self.baselink_pose_callback,
-    #   qos_profile=qos_profile,
-    # )
-    # self.baselink_pose_subscriber
+    self.baselink_pose_subscriber = self.create_subscription(
+      Odometry,
+      "/odometry/filtered",
+      self.baselink_pose_callback,
+      qos_profile=qos_profile,
+    )
+    self.baselink_pose_subscriber
     self.balls_baselink_subscriber = self.create_subscription(
       SpatialBallArray, "balls_map", self.balls_msg_received_callback, 10
     )
@@ -78,6 +79,9 @@ class GoalPose(Node):
     )
     self.safe_xy_limits = (
       self.get_parameter("safe_xy_limits").get_parameter_value().double_array_value
+    )
+    self.__offset_distance = (
+      self.get_parameter("offset_distance").get_parameter_value().double_value
     )
     self.team_color = (
       self.get_parameter("team_color").get_parameter_value().string_value
@@ -129,8 +133,8 @@ class GoalPose(Node):
     return
 
   def balls_msg_received_callback(self, SpatialBalls_msg: SpatialBallArray):
-    map2base_tf = self.get_tf("map", "base_link", Time(seconds=0, nanoseconds=0))
-    self.translation_map2base, self.quaternion_map2base = self.compute_pose(map2base_tf)
+    # map2base_tf = self.get_tf("map", "base_link", Time(seconds=0, nanoseconds=0))
+    # self.translation_map2base, self.quaternion_map2base = self.compute_pose(map2base_tf)
 
     if self.translation_map2base is None:
       # self.get_logger().info("Waiting for baselink pose...")
@@ -222,7 +226,14 @@ class GoalPose(Node):
     if self.__yaw_90:
       return pi / 2
 
-    if self.__yaw_for_corners:
+    base2ball_vector = (
+      target_ball_location[0] - self.translation_map2base[0],
+      target_ball_location[1] - self.translation_map2base[1],
+    )
+
+    base2ball_distance = sqrt(base2ball_vector[0] ** 2 + base2ball_vector[1] ** 2)
+
+    if self.__yaw_for_corners and base2ball_distance < self.__offset_distance:
       if (
         target_ball_location[0] < self.safe_xy_limits.xmin
         and target_ball_location[1] > self.safe_xy_limits.ymin
@@ -238,16 +249,8 @@ class GoalPose(Node):
         and target_ball_location[1] < self.safe_xy_limits.ymax
       ):
         return 0.0
-      elif (
-        target_ball_location[0] < self.safe_xy_limits.xmax
-        and target_ball_location[1] < self.safe_xy_limits.ymin
-      ):
-        return -pi / 2
-    base_link2ball_vector = (
-      target_ball_location[0] - self.translation_map2base[0],
-      target_ball_location[1] - self.translation_map2base[1],
-    )
-    yaw = atan2(base_link2ball_vector[1], base_link2ball_vector[0])
+
+    yaw = atan2(base2ball_vector[1], base2ball_vector[0])
     return yaw
 
   def get_tf(self, from_frame: str, to_frame: str, time: Time) -> TransformStamped:
