@@ -24,8 +24,6 @@ class GoalPose(Node):
   def __init__(self):
     super().__init__("goal_pose_node")
 
-    self.__to_frame_rel = "base_link"
-    self.__from_frame_rel = "map"
     self.tf_buffer = Buffer()
     self.tf_listener = TransformListener(self.tf_buffer, self)
 

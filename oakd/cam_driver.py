@@ -142,7 +142,7 @@ class DepthAICameraHandler(Node):
 
     # Connect to device and start pipeline
     self.device = dai.Device(pipeline)
-    self.device.setIrLaserDotProjectorIntensity(0.5)
+    self.device.setIrLaserDotProjectorIntensity(1.0)
 
     # For now, RGB needs fixed focus to properly align with depth.
     # This value was used during calibration
