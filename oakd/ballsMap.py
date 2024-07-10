@@ -87,7 +87,7 @@ class Base2MapCoordinateTransform(Node):
 
     self.get_logger().info("Baselink2map coordinate transformation node started.")
 
-  def balls_baselink_callback(self, msg: SpatialBallArray):
+  def balls_baselink_callback(self, msg: SpatialBallArray) -> None:
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
     tf_map2base = self.get_map2base_tf(
       self.__from_frame_rel, self.__to_frame_rel, Time(seconds=0, nanoseconds=0)
@@ -145,7 +145,7 @@ class Base2MapCoordinateTransform(Node):
     self.balls_map_publisher.publish(balls_map_msg)
     return
 
-  def filter_balls(self, balls):
+  def filter_balls(self, balls: List[SpatialBall]) -> List[SpatialBall]:
     """Filter balls based on the xy limits"""
     filtered_balls = [
       ball
@@ -157,7 +157,7 @@ class Base2MapCoordinateTransform(Node):
     ]
     return filtered_balls
 
-  def base2map(self, baselink_point):
+  def base2map(self, baselink_point: List[float]) -> np.ndarray:
     """Transform the point from base_link frame to map frame"""
     baselink_point.append(1.0)
     baselink_homogeneous_point = np.array(baselink_point, dtype=np.float32)
@@ -177,7 +177,7 @@ class Base2MapCoordinateTransform(Node):
     point = converted_point / converted_point[3]
     return point[:3].ravel()
 
-  def baselink_pose_callback(self, pose_msg: Odometry):
+  def baselink_pose_callback(self, pose_msg: Odometry) -> None:
     """Updates the pose of baselink w.r.t. map"""
     self.translation_map2base = np.zeros(3)
     self.translation_map2base[0] = round(
@@ -210,7 +210,7 @@ class Base2MapCoordinateTransform(Node):
 
   def get_map2base_tf(
     self, from_frame: str, to_frame: str, time: Time
-  ) -> TransformStamped:
+  ) -> TransformStamped | None:
     try:
       t = self.tf_buffer.lookup_transform(
         from_frame,
@@ -225,7 +225,7 @@ class Base2MapCoordinateTransform(Node):
 
   def get_delta_tf(
     self, from_frame: str, to_frame: str, time_current: Time, time_past: Time
-  ) -> TransformStamped:
+  ) -> TransformStamped | None:
     try:
       t = self.tf_buffer.lookup_transform_full(
         to_frame,

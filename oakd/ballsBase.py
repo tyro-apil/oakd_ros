@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import rclpy
 from oakd_msgs.msg import SpatialBall, SpatialBallArray
@@ -92,7 +94,7 @@ class Cam2BaseTransform(Node):
     self.balls_base_msg = balls_base_msg
     self.balls_base_publisher.publish(self.balls_base_msg)
 
-  def cam2base(self, cam_point):
+  def cam2base(self, cam_point: List[float]) -> np.ndarray:
     # breakpoint()
     cam_point.append(1.0)
     cam_homogeneous_point = np.array(cam_point, dtype=np.float32)

@@ -189,11 +189,9 @@ class DepthAICameraHandler(Node):
     msg_header.frame_id = "oak_rgb_camera_link_optical"
 
     # Resize the opencv frames
-    # rgb_frame = cv2.resize(rgb_frame, (1280, 720), interpolation=cv2.INTER_AREA)
     depth_frame = cv2.resize(depth_frame, (1280, 720), interpolation=cv2.INTER_AREA)
 
     # Convert the frame to a ROS Image message and publish it
-    # self.get_logger().info(f'RGB frame shape {rgb_frame.shape} Depth frame shape {depth_frame.shape}')
     rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(
       rgb_frame,
       encoding="bgr8",

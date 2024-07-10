@@ -1,5 +1,5 @@
 import math
-from typing import List
+from typing import Callable, List
 
 import message_filters
 import numpy as np
@@ -18,19 +18,19 @@ from yolov8_msgs.msg import BoundingBox2D, DetectionArray
 
 
 class HostSpatialsCalc:
-  def __init__(self, neighbourhood_pixels=4):
+  def __init__(self, neighbourhood_pixels: int = 4) -> None:
     # Values
     self.THRESH_LOW = 200  # 20 cm
     self.THRESH_HIGH = 30000  # 30 m
     self.DELTA = neighbourhood_pixels
 
-  def setLowerThreshold(self, threshold_low):
+  def setLowerThreshold(self, threshold_low: int) -> None:
     self.THRESH_LOW = threshold_low
 
-  def setUpperThreshold(self, threshold_low):
-    self.THRESH_HIGH = threshold_low
+  def setUpperThreshold(self, threshold_high: int) -> None:
+    self.THRESH_HIGH = threshold_high
 
-  def setDeltaRoi(self, delta):
+  def setDeltaRoi(self, delta: int) -> None:
     self.DELTA = delta
 
   def _check_input(
@@ -49,7 +49,7 @@ class HostSpatialsCalc:
     return math.atan(math.tan(HFOV / 2.0) * offset / (frame.shape[1] / 2.0))
 
   # roi has to be list of ints
-  def calc_spatials(self, depthFrame, roi, averaging_method=np.mean):
+  def calc_spatials(self, depthFrame, roi, averaging_method: Callable = np.mean):
     roi = self._check_input(roi, depthFrame)  # If point was passed, convert it to ROI
     xmin, ymin, xmax, ymax = roi
 
@@ -190,7 +190,6 @@ class SpatialCalculator(Node):
     balls_cam_msg.header.frame_id = "oak_rgb_camera_link_optical"
 
     depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
-    # self.get_logger().info(f"Received depth image with shape {depthFrame.shape}")
 
     detections = detections_msg.detections
 
