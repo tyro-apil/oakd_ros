@@ -10,3 +10,7 @@
 
     # Averaging neighboring pixels' depth for depth of a point
     neighbourhood_pixels: 4
+
+    clip_depth: True
+    min_depth: 0.40
+    max_depth: 10.00

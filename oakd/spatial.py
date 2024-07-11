@@ -19,11 +19,12 @@ from yolov8_msgs.msg import BoundingBox2D, DetectionArray
 
 
 class HostSpatialsCalc:
-  def __init__(self, neighbourhood_pixels: int = 4) -> None:
+  def __init__(self, neighbourhood_pixels: int = 4, clip_depth: bool = True) -> None:
     # Values
     self.THRESH_LOW = 200  # 20 cm
     self.THRESH_HIGH = 30000  # 30 m
     self.DELTA = neighbourhood_pixels
+    self.__clip_depth = clip_depth
 
   def setLowerThreshold(self, threshold_low: int) -> None:
     self.THRESH_LOW = threshold_low
@@ -61,6 +62,9 @@ class HostSpatialsCalc:
     # Required information for calculating spatial coordinates on the host
     HFOV = 2.216568150  # OAKD PRO-W : in radians
     averageDepth = averaging_method(depthROI[inRange])
+
+    if self.__clip_depth:
+      averageDepth = np.clip(averageDepth, self.THRESH_LOW, self.THRESH_HIGH)
 
     centroid = {  # Get centroid of the ROI
       "x": int((xmax + xmin) / 2),
@@ -116,6 +120,9 @@ class SpatialCalculator(Node):
     self.declare_parameter("host_spatials_method", "bbox_center")
     self.declare_parameter("neighbourhood_pixels", 4)
     self.declare_parameter("decimal_accuracy", 3)
+    self.declare_parameter("min_depth", 0.50)
+    self.declare_parameter("max_depth", 8.00)
+    self.declare_parameter("clip_depth", True)
 
     # self.depth_img_queue = deque(maxlen=100)
 
@@ -171,6 +178,11 @@ class SpatialCalculator(Node):
     neighbourhood_pixels = (
       self.get_parameter("neighbourhood_pixels").get_parameter_value().integer_value
     )
+    self.__clip_depth = (
+      self.get_parameter("clip_depth").get_parameter_value().bool_value
+    )
+    self.min_depth = self.get_parameter("min_depth").get_parameter_value().double_value
+    self.max_depth = self.get_parameter("max_depth").get_parameter_value().double_value
 
     self.camera_info_handler = CameraInfoManager(
       intrinsic_matrix_flat[0],
@@ -187,7 +199,7 @@ class SpatialCalculator(Node):
 
     self.bridge = CvBridge()
     self.balls_cam_msg = SpatialBallArray()
-    self.hostSpatials = HostSpatialsCalc(neighbourhood_pixels)
+    self.hostSpatials = HostSpatialsCalc(neighbourhood_pixels, self.__clip_depth)
 
     self.get_logger().info("SpatialCalculator node started.")
 
@@ -216,8 +228,13 @@ class SpatialCalculator(Node):
 
       match self.__coordinate_calc_method:
         case "SinglePointDepth":
+          depth = depthFrame[center_xy[1], center_xy[0]]
+
+          if self.__clip_depth:
+            depth = np.clip(depth, self.min_depth, self.max_depth)
+
           spatials = self.camera_info_handler.get_spatial_location(
-            depthFrame[center_xy[1], center_xy[0]], center_xy[0], center_xy[1]
+            depth, center_xy[0], center_xy[1]
           )
 
         case "HostSpatials":
