@@ -34,6 +34,7 @@ class GoalPose(Node):
     self.declare_parameter("clamp_goalpose", True)
     self.declare_parameter("yaw_for_corners", True)
     self.declare_parameter("yaw_90", False)
+    self.declare_parameter("lock_far_target", False)
 
     self.declare_parameter("x_intake_offset", 0.60)
     self.declare_parameter("y_intake_offset", 0.15)
@@ -103,6 +104,9 @@ class GoalPose(Node):
       self.get_parameter("yaw_for_corners").get_parameter_value().bool_value
     )
     self.__yaw_90 = self.get_parameter("yaw_90").get_parameter_value().bool_value
+    self.__lock_far_target = (
+      self.get_parameter("lock_far_target").get_parameter_value().bool_value
+    )
 
     self.translation_map2base = None
     self.quaternion_map2base = None
@@ -135,13 +139,12 @@ class GoalPose(Node):
     # self.translation_map2base, self.quaternion_map2base = self.compute_pose(map2base_tf)
 
     if self.translation_map2base is None:
-      # self.get_logger().info("Waiting for baselink pose...")
       return
 
     team_colored_balls = self.filter_balls(SpatialBalls_msg.spatial_balls)
-    self.get_logger().info(
-      f"detected: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
-    )
+    # self.get_logger().info(
+    #   f"detected: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
+    # )
 
     if len(team_colored_balls) == 0:
       self.set_ball_tracking_state(False)
@@ -157,6 +160,19 @@ class GoalPose(Node):
         if ball.tracker_id == self.tracked_id:
           self.target_ball_location = (ball.position.x, ball.position.y)
           self.set_target_ball(self.tracked_id, self.target_ball_location)
+
+          if self.__lock_far_target:
+            base2target_vector = (
+              self.target_ball_location[0] - self.translation_map2base[0],
+              self.target_ball_location[1] - self.translation_map2base[1],
+            )
+            base2target_distance = sqrt(
+              base2target_vector[0] ** 2 + base2target_vector[1] ** 2
+            )
+            if base2target_distance > 1.0:
+              return
+            break
+
     else:
       self.tracked_id, self.target_ball_location = self.get_closest_ball(
         team_colored_balls
@@ -327,6 +343,9 @@ class GoalPose(Node):
     self.goalpose_publisher.publish(self.goalpose_map)
     self.target_publisher.publish(self.target_ball)
     return
+
+  def timer_callback(self) -> None:
+    self.publish_state_n_goalpose()
 
 
 def main(args=None):
