@@ -1,4 +1,5 @@
 import math
+from collections import deque
 from typing import Callable, List
 
 import message_filters
@@ -58,7 +59,6 @@ class HostSpatialsCalc:
     inRange = (self.THRESH_LOW <= depthROI) & (depthROI <= self.THRESH_HIGH)
 
     # Required information for calculating spatial coordinates on the host
-    # HFOV = 1.25419360             # OAKD PRO : in radians
     HFOV = 2.216568150  # OAKD PRO-W : in radians
     averageDepth = averaging_method(depthROI[inRange])
 
@@ -83,19 +83,7 @@ class HostSpatialsCalc:
     return spatials
 
 
-def xywh2xyxy(xywh: List) -> List:
-  """Converts bbox xywh format into xyxy format"""
-  xyxy = []
-  xyxy.append(xywh[0] - int(xywh[2] / 2))
-  xyxy.append(xywh[1] - int(xywh[3] / 2))
-  xyxy.append(xywh[0] + int(xywh[2] / 2))
-  xyxy.append(xywh[1] + int(xywh[3] / 2))
-  return xyxy
-
-
 class CameraInfoManager:
-  """Camera info class to calculate spatial location of the object in the real world"""
-
   def __init__(self, fx, fy, cx, cy):
     self.fx = fx
     self.fy = fy
@@ -129,6 +117,8 @@ class SpatialCalculator(Node):
     self.declare_parameter("neighbourhood_pixels", 4)
     self.declare_parameter("decimal_accuracy", 3)
 
+    # self.depth_img_queue = deque(maxlen=100)
+
     ## Publisher of ball position data in real world
     self.balls_location_publisher = self.create_publisher(
       SpatialBallArray, "balls_cam", 10
@@ -141,12 +131,30 @@ class SpatialCalculator(Node):
       depth=1,
     )
 
+    # self.raw_img_sub = self.create_subscription(
+    #   Image, "stereo/depth", self.img_callback, qos_profile=image_qos_profile
+    # )
+    # self.raw_img_sub
+    # self.detections_sub = self.create_subscription(
+    #   DetectionArray, "yolo/tracking", self.detections_cb, qos_profile=10
+    # )
+    # self.detections_sub
+
     raw_img_sub = message_filters.Subscriber(
       self, Image, "stereo/depth", qos_profile=image_qos_profile
     )  # subscriber to raw depth image message
     detections_sub = message_filters.Subscriber(
-      self, DetectionArray, "yolo/tracking", qos_profile=10
+      self,
+      DetectionArray,
+      "yolo/tracking",
+      qos_profile=10,
     )  # subscriber to detections message
+    # detections_sub = message_filters.Subscriber(
+    #   self,
+    #   DetectionArray,
+    #   "yolo/detections",
+    #   qos_profile=10,
+    # )  # subscriber to detections message
 
     self.__decimal_accuracy = (
       self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
@@ -183,8 +191,15 @@ class SpatialCalculator(Node):
 
     self.get_logger().info("SpatialCalculator node started.")
 
+  def img_callback(self, msg: Image):
+    depth_frame = self.bridge.imgmsg_to_cv2(msg)
+    self.depth_img_queue.append(depth_frame)
+
   def detections_cb(self, depthImg_msg: Image, detections_msg: DetectionArray):
+    # def detections_cb(self, detections_msg: DetectionArray):
+    # self.get_logger().info(f"deque size: {self.depth_img_queue.__len__()}")
     # Reset old data
+    # i = 1
     balls_cam_msg = SpatialBallArray()
     balls_cam_msg.header.stamp = detections_msg.header.stamp
     balls_cam_msg.header.frame_id = "oak_rgb_camera_link_optical"
@@ -209,7 +224,7 @@ class SpatialCalculator(Node):
           if self.__host_spatials_method == "bbox_center":
             spatials = self.hostSpatials.calc_spatials(depthFrame, center_xy)
           elif self.__host_spatials_method == "bbox_roi":
-            bbox_xyxy = xywh2xyxy(bbox_xywh)
+            bbox_xyxy = self.xywh2xyxy(bbox_xywh)
             spatials = self.hostSpatials.calc_spatials(depthFrame, bbox_xyxy)
           else:
             raise ValueError("Invalid host spatials calculation method")
@@ -223,6 +238,8 @@ class SpatialCalculator(Node):
       ball_msg.position.y = round(float(spatials["y"]), self.__decimal_accuracy)
       ball_msg.position.z = round(float(spatials["z"]), self.__decimal_accuracy)
 
+      # ball_msg.tracker_id = str(i)
+      # i += 1
       ball_msg.tracker_id = detection.id
       ball_msg.class_id = detection.class_id
       ball_msg.class_name = detection.class_name
@@ -244,6 +261,15 @@ class SpatialCalculator(Node):
     width = int(bbox_xywh.size.x)
     height = int(bbox_xywh.size.y)
     return [center_x, center_y, width, height]
+
+  def xywh2xyxy(self, xywh: List) -> List:
+    """Converts bbox xywh format into xyxy format"""
+    xyxy = []
+    xyxy.append(xywh[0] - int(xywh[2] / 2))
+    xyxy.append(xywh[1] - int(xywh[3] / 2))
+    xyxy.append(xywh[0] + int(xywh[2] / 2))
+    xyxy.append(xywh[1] + int(xywh[3] / 2))
+    return xyxy
 
 
 def main(args=None):
