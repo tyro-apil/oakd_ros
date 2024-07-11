@@ -12,5 +12,9 @@
     neighbourhood_pixels: 4
 
     clip_depth: True
-    min_depth: 0.40
-    max_depth: 10.00
+    min_depth: 0.60
+    max_depth: 8.00
+
+    compare_past_depth: True
+    delta_depth_min: 0.005
+    delta_depth_max: 0.500

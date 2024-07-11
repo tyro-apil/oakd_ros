@@ -15,7 +15,7 @@ from rclpy.qos import (
   QoSReliabilityPolicy,
 )
 from sensor_msgs.msg import Image
-from yolov8_msgs.msg import BoundingBox2D, DetectionArray
+from yolov8_msgs.msg import BoundingBox2D, Detection, DetectionArray
 
 
 class HostSpatialsCalc:
@@ -123,6 +123,9 @@ class SpatialCalculator(Node):
     self.declare_parameter("min_depth", 0.50)
     self.declare_parameter("max_depth", 8.00)
     self.declare_parameter("clip_depth", True)
+    self.declare_parameter("comapre_past_depth", True)
+    self.declare_parameter("delta_depth_min", 0.005)
+    self.declare_parameter("delta_depth_max", 0.500)
 
     # self.depth_img_queue = deque(maxlen=100)
 
@@ -183,6 +186,15 @@ class SpatialCalculator(Node):
     )
     self.min_depth = self.get_parameter("min_depth").get_parameter_value().double_value
     self.max_depth = self.get_parameter("max_depth").get_parameter_value().double_value
+    self.__compare_past_depth = (
+      self.get_parameter("comapre_past_depth").get_parameter_value().bool_value
+    )
+    self.delta_depth_min = (
+      self.get_parameter("delta_depth_min").get_parameter_value().double_value
+    )
+    self.delta_depth_max = (
+      self.get_parameter("delta_depth_max").get_parameter_value().double_value
+    )
 
     self.camera_info_handler = CameraInfoManager(
       intrinsic_matrix_flat[0],
@@ -197,6 +209,9 @@ class SpatialCalculator(Node):
     )
     self._synchronizer.registerCallback(self.detections_cb)
 
+    if self.__compare_past_depth:
+      self.balls_depth_history = {}
+      self.new_depths = {}
     self.bridge = CvBridge()
     self.balls_cam_msg = SpatialBallArray()
     self.hostSpatials = HostSpatialsCalc(neighbourhood_pixels, self.__clip_depth)
@@ -218,7 +233,10 @@ class SpatialCalculator(Node):
 
     depthFrame = self.bridge.imgmsg_to_cv2(depthImg_msg)
 
-    detections = detections_msg.detections
+    detections: List[Detection] = detections_msg.detections
+
+    if self.__compare_past_depth:
+      self.new_depths.clear()
 
     for detection in detections:
       # Parse bbox
@@ -249,6 +267,15 @@ class SpatialCalculator(Node):
         case _:
           raise ValueError("Invalid coordinate calculation method")
 
+      if self.__compare_past_depth:
+        past_depth = self.balls_depth_history.get(detection.id, None)
+        if past_depth is not None:
+          if abs(past_depth - spatials["z"]) < self.delta_depth_min:
+            spatials["z"] = past_depth
+          if abs(past_depth - spatials["z"]) > self.delta_depth_max:
+            spatials["z"] = past_depth
+        self.new_depths[detection.id] = spatials["z"]
+
       # Get 'Ball' type message for individual detection
       ball_msg = SpatialBall()
       ball_msg.position.x = round(float(spatials["x"]), self.__decimal_accuracy)
@@ -263,6 +290,10 @@ class SpatialCalculator(Node):
       ball_msg.score = detection.score
 
       balls_cam_msg.spatial_balls.append(ball_msg)
+
+    if self.__compare_past_depth:
+      self.balls_depth_history.clear()
+      self.balls_depth_history = self.new_depths.copy()
 
     self.balls_cam_msg = balls_cam_msg
     # Publish the 'BallArray' message
