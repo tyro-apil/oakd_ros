@@ -99,9 +99,11 @@ class DepthAICameraHandler(Node):
 
     rgbOut = pipeline.create(dai.node.XLinkOut)
     depthOut = pipeline.create(dai.node.XLinkOut)
+    controlIn = pipeline.create(dai.node.XLinkIn)
 
     rgbOut.setStreamName("rgb")
     depthOut.setStreamName("depth")
+    controlIn.setStreamName("control")
 
     # Properties
     sync.setSyncThreshold(timedelta(milliseconds=20))
@@ -126,6 +128,7 @@ class DepthAICameraHandler(Node):
     # stereo.setOutputKeepAspectRatio(True)
 
     # Linking
+    controlIn.out.link(camRgb.inputControl)
     left.out.link(stereo.left)
     right.out.link(stereo.right)
     stereo.depth.link(sync.inputs["depth"])
@@ -143,6 +146,54 @@ class DepthAICameraHandler(Node):
     # Connect to device and start pipeline
     self.device = dai.Device(pipeline)
     self.device.setIrLaserDotProjectorIntensity(1.0)
+
+    controlQueue = self.device.getInputQueue("control")
+
+    ############################
+    # Camera Controls
+    ############################
+    self.declare_parameter("auto_exp", False)
+    self.declare_parameter("auto_wb", False)
+
+    self.declare_parameter("exp_time", 10000)
+    self.declare_parameter("wb", 4000)
+    self.declare_parameter("iso", 800)
+
+    self.declare_parameter("brightness", 0)
+    self.declare_parameter("contrast", 0)
+    self.declare_parameter("saturation", 0)
+    self.declare_parameter("sharpness", 0)
+
+    auto_exp = self.get_parameter("auto_exp").get_parameter_value().bool_value
+    auto_wb = self.get_parameter("auto_wb").get_parameter_value().bool_value
+
+    exp_time = self.get_parameter("exp_time").get_parameter_value().integer_value
+    wb = self.get_parameter("wb").get_parameter_value().integer_value
+    iso = self.get_parameter("iso").get_parameter_value().integer_value
+
+    brightness = self.get_parameter("brightness").get_parameter_value().integer_value
+    contrast = self.get_parameter("contrast").get_parameter_value().integer_value
+    saturation = self.get_parameter("saturation").get_parameter_value().integer_value
+    sharpness = self.get_parameter("sharpness").get_parameter_value().integer_value
+
+    ctrl = dai.CameraControl()
+
+    if auto_exp:
+      ctrl.setAutoExposureEnable()
+    else:
+      ctrl.setManualExposure(exp_time, iso)
+
+    if auto_wb:
+      ctrl.setAutoWhiteBalanceMode(dai.CameraControl.AutoWhiteBalanceMode.AUTO)
+    else:
+      ctrl.setManualWhiteBalance(wb)
+
+    ctrl.setBrightness(brightness)
+    ctrl.setContrast(contrast)
+    ctrl.setSaturation(saturation)
+    ctrl.setSharpness(sharpness)
+
+    controlQueue.send(ctrl)
 
     # For now, RGB needs fixed focus to properly align with depth.
     # This value was used during calibration

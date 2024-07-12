@@ -9,3 +9,18 @@
     k: [761.81488037, 0.0, 646.52478027, 0.0, 761.15325928, 361.41662598, 0.0, 0.0, 1.0]  # For 1280x720
     p: [761.81488037, 0.0, 646.52478027, 0.0, 0.0, 761.15325928, 361.41662598,0.0, 0.0, 0.0, 1.0, 0.0]  # For 1280x720
 
+    # Camera controls
+    auto_exp: False
+    # auto_focus: True
+    auto_wb: True
+
+    exp_time: 25000  # in microseconds-> 1..33000
+    # focus: 0              # far...near: 0...255
+    wb: 4000   # in kelvin-> 1000..12000
+    iso: 1000  # 100..1600
+
+    brightness: 0       # -10..10
+    contrast: -1          # -10..10
+    saturation: 2        # -10..10
+    sharpness: 2         # 0..4
+
