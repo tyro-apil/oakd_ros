@@ -14,13 +14,13 @@
     # auto_focus: True
     auto_wb: True
 
-    exp_time: 25000  # in microseconds-> 1..33000
+    exp_time: 33000  # in microseconds-> 1..33000
     # focus: 0              # far...near: 0...255
     wb: 4000   # in kelvin-> 1000..12000
-    iso: 1000  # 100..1600
+    iso: 1600  # 100..1600
 
     brightness: 0       # -10..10
-    contrast: -1          # -10..10
-    saturation: 2        # -10..10
-    sharpness: 2         # 0..4
+    contrast: 0         # -10..10
+    saturation: 5        # -10..10
+    sharpness: 4         # 0..4
 
