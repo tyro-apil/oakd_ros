@@ -219,7 +219,7 @@ class Base2MapCoordinateTransform(Node):
         timeout=Duration(seconds=0.003),
       )
     except TransformException as ex:
-      self.get_logger().info(f"Could not transform {from_frame} to {to_frame}: {ex}")
+      # self.get_logger().info(f"Could not transform {from_frame} to {to_frame}: {ex}")
       return None
     return t
 
@@ -236,9 +236,9 @@ class Base2MapCoordinateTransform(Node):
         Duration(seconds=0.003),
       )
     except TransformException as ex:
-      self.get_logger().info(
-        f"Could not transform {to_frame} from current to past: {ex}"
-      )
+      # self.get_logger().info(
+      #   f"Could not transform {to_frame} from current to past: {ex}"
+      # )
       return None
     return t
 
