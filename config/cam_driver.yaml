@@ -24,3 +24,6 @@
     saturation: 5        # -10..10
     sharpness: 4         # 0..4
 
+    set_alpha: True
+    alpha: 1.0            # Alpha scaling parameter
+

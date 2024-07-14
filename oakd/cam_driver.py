@@ -63,12 +63,16 @@ class DepthAICameraHandler(Node):
     self.declare_parameter("width", 1280)
     self.declare_parameter("height", 720)
     self.declare_parameter("fps", 30)
+    self.declare_parameter("set_alpha", False)
+    self.declare_parameter("alpha", 1.0)
+
     # Camera parameters
     self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
     self.__rgb_width = self.get_parameter("width").get_parameter_value().integer_value
     self.__rgb_height = self.get_parameter("height").get_parameter_value().integer_value
+    self.__alpha = self.get_parameter("alpha").get_parameter_value().double_value
+
     self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
-    self.alpha_ = None
 
     image_qos_profile = QoSProfile(
       reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -139,9 +143,9 @@ class DepthAICameraHandler(Node):
 
     # Calibration Mesh for rectifying rgb
     camRgb.setMeshSource(dai.CameraProperties.WarpMeshSource.CALIBRATION)
-    if self.alpha_ is not None:
-      camRgb.setCalibrationAlpha(self.alpha_)
-      stereo.setAlphaScaling(self.alpha_)
+    if self.__alpha is not None:
+      camRgb.setCalibrationAlpha(self.__alpha)
+      stereo.setAlphaScaling(self.__alpha)
 
     # Connect to device and start pipeline
     self.device = dai.Device(pipeline)
@@ -234,6 +238,9 @@ class DepthAICameraHandler(Node):
 
     rgb_frame = inRgb.getCvFrame()
     depth_frame = inDepth.getCvFrame()
+
+    rgb_frame = cv2.rotate(rgb_frame, cv2.ROTATE_180)
+    depth_frame = cv2.rotate(depth_frame, cv2.ROTATE_180)
 
     msg_header = Header()
     msg_header.stamp = self.get_clock().now().to_msg()
