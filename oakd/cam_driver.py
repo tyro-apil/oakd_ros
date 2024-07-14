@@ -184,6 +184,9 @@ class DepthAICameraHandler(Node):
     rgb_frame = inRgb.getCvFrame()
     depth_frame = inDepth.getCvFrame()
 
+    rgb_frame = cv2.rotate(rgb_frame, cv2.ROTATE_180)
+    depth_frame = cv2.rotate(depth_frame, cv2.ROTATE_180)
+
     msg_header = Header()
     msg_header.stamp = self.get_clock().now().to_msg()
     msg_header.frame_id = "oak_rgb_camera_link_optical"
