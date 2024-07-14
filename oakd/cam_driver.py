@@ -237,7 +237,7 @@ class DepthAICameraHandler(Node):
 
     # Calibration Mesh for rectifying rgb
     self.camRgb.setMeshSource(dai.CameraProperties.WarpMeshSource.CALIBRATION)
-    if self.__set_alpha is not None:
+    if self.__set_alpha:
       self.camRgb.setCalibrationAlpha(self.__alpha)
       stereo.setAlphaScaling(self.__alpha)
 
