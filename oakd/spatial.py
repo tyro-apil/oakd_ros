@@ -98,9 +98,9 @@ class CameraInfoManager:
     spatials = {}
     x_cam = (x_img - self.cx) * depth / self.fx
     y_cam = (y_img - self.cy) * depth / self.fy
-    spatials["x"] = x_cam / 1000
-    spatials["y"] = y_cam / 1000
-    spatials["z"] = depth / 1000
+    spatials["x"] = x_cam
+    spatials["y"] = y_cam
+    spatials["z"] = depth
     return spatials
 
   def set_camera_info(self, fx, fy, cx, cy):
@@ -246,10 +246,19 @@ class SpatialCalculator(Node):
 
       match self.__coordinate_calc_method:
         case "SinglePointDepth":
-          depth = depthFrame[center_xy[1], center_xy[0]]
+          depth = depthFrame[center_xy[1], center_xy[0]] / 1000
 
           if self.__clip_depth:
             depth = np.clip(depth, self.min_depth, self.max_depth)
+
+          if self.__compare_past_depth:
+            past_depth = self.balls_depth_history.get(detection.id, None)
+            if past_depth is not None:
+              if abs(past_depth - depth) < self.delta_depth_min:
+                depth = past_depth
+              if abs(past_depth - depth) > self.delta_depth_max:
+                depth = past_depth
+            self.new_depths[detection.id] = depth
 
           spatials = self.camera_info_handler.get_spatial_location(
             depth, center_xy[0], center_xy[1]
@@ -266,15 +275,6 @@ class SpatialCalculator(Node):
 
         case _:
           raise ValueError("Invalid coordinate calculation method")
-
-      if self.__compare_past_depth:
-        past_depth = self.balls_depth_history.get(detection.id, None)
-        if past_depth is not None:
-          if abs(past_depth - spatials["z"]) < self.delta_depth_min:
-            spatials["z"] = past_depth
-          if abs(past_depth - spatials["z"]) > self.delta_depth_max:
-            spatials["z"] = past_depth
-        self.new_depths[detection.id] = spatials["z"]
 
       # Get 'Ball' type message for individual detection
       ball_msg = SpatialBall()
