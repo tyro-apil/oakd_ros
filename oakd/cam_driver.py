@@ -60,19 +60,9 @@ def paddedResize(image, target_size, pad_color=(0, 0, 0)):
 class DepthAICameraHandler(Node):
   def __init__(self):
     super().__init__("camera_handler_node")
-    self.declare_parameter("width", 1280)
-    self.declare_parameter("height", 720)
-    self.declare_parameter("fps", 30)
-    self.declare_parameter("set_alpha", False)
-    self.declare_parameter("alpha", 1.0)
 
-    # Camera parameters
-    self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
-    self.__rgb_width = self.get_parameter("width").get_parameter_value().integer_value
-    self.__rgb_height = self.get_parameter("height").get_parameter_value().integer_value
-    self.__alpha = self.get_parameter("alpha").get_parameter_value().double_value
-
-    self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
+    self.declare_params()
+    self.get_params()
 
     image_qos_profile = QoSProfile(
       reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -90,139 +80,32 @@ class DepthAICameraHandler(Node):
     )
     self.bridge = CvBridge()
 
-    # Create pipeline
-    pipeline = dai.Pipeline()
-
-    # Define source and output
-    camRgb = pipeline.create(dai.node.Camera)
-    left = pipeline.create(dai.node.MonoCamera)
-    right = pipeline.create(dai.node.MonoCamera)
-    stereo = pipeline.create(dai.node.StereoDepth)
-    sync = pipeline.create(dai.node.Sync)
-    demux = pipeline.create(dai.node.MessageDemux)
-
-    rgbOut = pipeline.create(dai.node.XLinkOut)
-    depthOut = pipeline.create(dai.node.XLinkOut)
-    controlIn = pipeline.create(dai.node.XLinkIn)
-
-    rgbOut.setStreamName("rgb")
-    depthOut.setStreamName("depth")
-    controlIn.setStreamName("control")
-
-    # Properties
-    sync.setSyncThreshold(timedelta(milliseconds=20))
-
-    rgbCamSocket = dai.CameraBoardSocket.CAM_A
-
-    camRgb.setBoardSocket(rgbCamSocket)
-    camRgb.setPreviewSize(self.__rgb_width, self.__rgb_height)
-    camRgb.Properties.previewKeepAspectRatio = True
-    camRgb.setFps(self.__fps)
-
-    left.setResolution(self.mono_resolution_)
-    left.setCamera("left")
-    left.setFps(self.__fps)
-    right.setResolution(self.mono_resolution_)
-    right.setCamera("right")
-    right.setFps(self.__fps)
-
-    stereo.setLeftRightCheck(True)
-    stereo.setDepthAlign(rgbCamSocket)
-    # stereo.setOutputSize(self.__rgb_width, self.__rgb_height)
-    # stereo.setOutputKeepAspectRatio(True)
-
-    # Linking
-    controlIn.out.link(camRgb.inputControl)
-    left.out.link(stereo.left)
-    right.out.link(stereo.right)
-    stereo.depth.link(sync.inputs["depth"])
-    camRgb.preview.link(sync.inputs["rgb"])
-    sync.out.link(demux.input)
-    demux.outputs["rgb"].link(rgbOut.input)
-    demux.outputs["depth"].link(depthOut.input)
-
-    # Calibration Mesh for rectifying rgb
-    camRgb.setMeshSource(dai.CameraProperties.WarpMeshSource.CALIBRATION)
-    if self.__alpha is not None:
-      camRgb.setCalibrationAlpha(self.__alpha)
-      stereo.setAlphaScaling(self.__alpha)
+    pipeline = self.create_pipeline()
 
     # Connect to device and start pipeline
     self.device = dai.Device(pipeline)
     self.device.setIrLaserDotProjectorIntensity(1.0)
 
     controlQueue = self.device.getInputQueue("control")
-
-    ############################
-    # Camera Controls
-    ############################
-    self.declare_parameter("auto_exp", False)
-    self.declare_parameter("auto_wb", False)
-
-    self.declare_parameter("exp_time", 10000)
-    self.declare_parameter("wb", 4000)
-    self.declare_parameter("iso", 800)
-
-    self.declare_parameter("brightness", 0)
-    self.declare_parameter("contrast", 0)
-    self.declare_parameter("saturation", 0)
-    self.declare_parameter("sharpness", 0)
-
-    auto_exp = self.get_parameter("auto_exp").get_parameter_value().bool_value
-    auto_wb = self.get_parameter("auto_wb").get_parameter_value().bool_value
-
-    exp_time = self.get_parameter("exp_time").get_parameter_value().integer_value
-    wb = self.get_parameter("wb").get_parameter_value().integer_value
-    iso = self.get_parameter("iso").get_parameter_value().integer_value
-
-    brightness = self.get_parameter("brightness").get_parameter_value().integer_value
-    contrast = self.get_parameter("contrast").get_parameter_value().integer_value
-    saturation = self.get_parameter("saturation").get_parameter_value().integer_value
-    sharpness = self.get_parameter("sharpness").get_parameter_value().integer_value
-
-    ctrl = dai.CameraControl()
-
-    if auto_exp:
-      ctrl.setAutoExposureEnable()
-    else:
-      ctrl.setManualExposure(exp_time, iso)
-
-    if auto_wb:
-      ctrl.setAutoWhiteBalanceMode(dai.CameraControl.AutoWhiteBalanceMode.AUTO)
-    else:
-      ctrl.setManualWhiteBalance(wb)
-
-    ctrl.setBrightness(brightness)
-    ctrl.setContrast(contrast)
-    ctrl.setSaturation(saturation)
-    ctrl.setSharpness(sharpness)
-
+    ctrl = self.create_camera_control()
     controlQueue.send(ctrl)
 
     # For now, RGB needs fixed focus to properly align with depth.
     # This value was used during calibration
     try:
       calibData = self.device.readCalibration2()
-      lensPosition = calibData.getLensPosition(rgbCamSocket)
+      lensPosition = calibData.getLensPosition(self.rgb_cam_socket)
       if lensPosition:
-        camRgb.initialControl.setManualFocus(lensPosition)
+        self.camRgb.initialControl.setManualFocus(lensPosition)
     except:
       raise Exception("Could not read calibration data")
 
-    self.get_logger().info(
-      f"Connected camera: {self.device.getConnectedCameraFeatures()}"
-    )
-    self.get_logger().info(f"USB speed: {self.device.getUsbSpeed().name}")
-    self.get_logger().info(
-      f"Device name: {self.device.getDeviceName()} Product name: {self.device.getProductName()}"
-    )
-    self.get_logger().info("Driver node started")
+    self.display_log()
 
     # Output queue will be used to get the frames from the output defined above
     self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
     self.qDepth = self.device.getOutputQueue(name="depth", maxSize=4, blocking=False)
 
-    # Create a timer to periodically call the timer_callback function
     self.timer = self.create_timer(0.05, self.timer_callback)
 
   def timer_callback(self):
@@ -260,6 +143,135 @@ class DepthAICameraHandler(Node):
     )
     self.rgb_publisher_.publish(rgbImg_ros_msg)
     self.depth_publisher_.publish(depthImg_ros_msg)
+
+  def declare_params(self):
+    self.declare_parameter("width", 1280)
+    self.declare_parameter("height", 720)
+    self.declare_parameter("fps", 30)
+    self.declare_parameter("set_alpha", False)
+    self.declare_parameter("alpha", 1.0)
+
+    self.declare_parameter("auto_exp", False)
+    self.declare_parameter("auto_wb", False)
+    self.declare_parameter("exp_time", 10000)
+    self.declare_parameter("wb", 4000)
+    self.declare_parameter("iso", 800)
+    self.declare_parameter("brightness", 0)
+    self.declare_parameter("contrast", 0)
+    self.declare_parameter("saturation", 0)
+    self.declare_parameter("sharpness", 0)
+
+  def get_params(self):
+    self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
+    self.__rgb_width = self.get_parameter("width").get_parameter_value().integer_value
+    self.__rgb_height = self.get_parameter("height").get_parameter_value().integer_value
+    self.__set_alpha = self.get_parameter("set_alpha").get_parameter_value().bool_value
+    self.__alpha = self.get_parameter("alpha").get_parameter_value().double_value
+
+    self.auto_exp = self.get_parameter("auto_exp").get_parameter_value().bool_value
+    self.auto_wb = self.get_parameter("auto_wb").get_parameter_value().bool_value
+    self.exp_time = self.get_parameter("exp_time").get_parameter_value().integer_value
+    self.wb = self.get_parameter("wb").get_parameter_value().integer_value
+    self.iso = self.get_parameter("iso").get_parameter_value().integer_value
+    self.brightness = (
+      self.get_parameter("brightness").get_parameter_value().integer_value
+    )
+    self.contrast = self.get_parameter("contrast").get_parameter_value().integer_value
+    self.saturation = (
+      self.get_parameter("saturation").get_parameter_value().integer_value
+    )
+    self.sharpness = self.get_parameter("sharpness").get_parameter_value().integer_value
+
+  def create_pipeline(self):
+    # Create pipeline
+    pipeline = dai.Pipeline()
+
+    # Define source and output
+    self.camRgb = pipeline.create(dai.node.Camera)
+    left = pipeline.create(dai.node.MonoCamera)
+    right = pipeline.create(dai.node.MonoCamera)
+    stereo = pipeline.create(dai.node.StereoDepth)
+    sync = pipeline.create(dai.node.Sync)
+    demux = pipeline.create(dai.node.MessageDemux)
+
+    rgbOut = pipeline.create(dai.node.XLinkOut)
+    depthOut = pipeline.create(dai.node.XLinkOut)
+    controlIn = pipeline.create(dai.node.XLinkIn)
+
+    rgbOut.setStreamName("rgb")
+    depthOut.setStreamName("depth")
+    controlIn.setStreamName("control")
+
+    # Properties
+    sync.setSyncThreshold(timedelta(milliseconds=20))
+
+    self.rgb_cam_socket = dai.CameraBoardSocket.CAM_A
+
+    self.camRgb.setBoardSocket(self.rgb_cam_socket)
+    self.camRgb.setPreviewSize(self.__rgb_width, self.__rgb_height)
+    self.camRgb.Properties.previewKeepAspectRatio = True
+    self.camRgb.setFps(self.__fps)
+
+    self.mono_resolution_ = dai.MonoCameraProperties.SensorResolution.THE_720_P
+    left.setResolution(self.mono_resolution_)
+    left.setCamera("left")
+    left.setFps(self.__fps)
+    right.setResolution(self.mono_resolution_)
+    right.setCamera("right")
+    right.setFps(self.__fps)
+
+    stereo.setLeftRightCheck(True)
+    stereo.setDepthAlign(self.rgb_cam_socket)
+    # stereo.setOutputSize(self.__rgb_width, self.__rgb_height)
+    # stereo.setOutputKeepAspectRatio(True)
+
+    # Linking
+    controlIn.out.link(self.camRgb.inputControl)
+    left.out.link(stereo.left)
+    right.out.link(stereo.right)
+    stereo.depth.link(sync.inputs["depth"])
+    self.camRgb.preview.link(sync.inputs["rgb"])
+    sync.out.link(demux.input)
+    demux.outputs["rgb"].link(rgbOut.input)
+    demux.outputs["depth"].link(depthOut.input)
+
+    # Calibration Mesh for rectifying rgb
+    self.camRgb.setMeshSource(dai.CameraProperties.WarpMeshSource.CALIBRATION)
+    if self.__set_alpha is not None:
+      self.camRgb.setCalibrationAlpha(self.__alpha)
+      stereo.setAlphaScaling(self.__alpha)
+
+    return pipeline
+
+  def create_camera_control(self):
+    ctrl = dai.CameraControl()
+
+    if self.auto_exp:
+      ctrl.setAutoExposureEnable()
+    else:
+      ctrl.setManualExposure(self.exp_time, self.iso)
+
+    if self.auto_wb:
+      ctrl.setAutoWhiteBalanceMode(dai.CameraControl.AutoWhiteBalanceMode.AUTO)
+    else:
+      ctrl.setManualWhiteBalance(self.wb)
+
+    ctrl.setBrightness(self.brightness)
+    ctrl.setContrast(self.contrast)
+    ctrl.setSaturation(self.saturation)
+    ctrl.setSharpness(self.sharpness)
+
+    return ctrl
+
+  def display_log(self):
+    self.get_logger().info(
+      f"Connected camera: {self.device.getConnectedCameraFeatures()}"
+    )
+    self.get_logger().info(f"USB speed: {self.device.getUsbSpeed().name}")
+    self.get_logger().info(
+      f"Device name: {self.device.getDeviceName()} Product name: {self.device.getProductName()}"
+    )
+    self.get_logger().info("Driver node started")
 
 
 def main(args=None):
