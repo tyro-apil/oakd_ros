@@ -1,4 +1,4 @@
 /**:
   ros__parameters:
-    balls_topic_sub: balls_map
-    balls_frame_ref: map
+    balls_topic_sub: balls_cam
+    balls_frame_ref: oak_rgb_camera_link_optical
