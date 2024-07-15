@@ -114,18 +114,8 @@ class SpatialCalculator(Node):
   def __init__(self):
     super().__init__("spatial_node")
 
-    # Declare parameters
-    self.declare_parameter("k", [0.0] * 9)
-    self.declare_parameter("coordinate_calc_method", "SinglePointDepth")
-    self.declare_parameter("host_spatials_method", "bbox_center")
-    self.declare_parameter("neighbourhood_pixels", 4)
-    self.declare_parameter("decimal_accuracy", 3)
-    self.declare_parameter("min_depth", 0.50)
-    self.declare_parameter("max_depth", 8.00)
-    self.declare_parameter("clip_depth", True)
-    self.declare_parameter("comapre_past_depth", True)
-    self.declare_parameter("delta_depth_min", 0.005)
-    self.declare_parameter("delta_depth_max", 0.500)
+    self.declare_params()
+    self.read_params()
 
     # self.depth_img_queue = deque(maxlen=100)
 
@@ -166,41 +156,11 @@ class SpatialCalculator(Node):
     #   qos_profile=10,
     # )  # subscriber to detections message
 
-    self.__decimal_accuracy = (
-      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
-    )
-    intrinsic_matrix_flat = (
-      self.get_parameter("k").get_parameter_value().double_array_value
-    )
-    self.__coordinate_calc_method = (
-      self.get_parameter("coordinate_calc_method").get_parameter_value().string_value
-    )
-    self.__host_spatials_method = (
-      self.get_parameter("host_spatials_method").get_parameter_value().string_value
-    )
-    neighbourhood_pixels = (
-      self.get_parameter("neighbourhood_pixels").get_parameter_value().integer_value
-    )
-    self.__clip_depth = (
-      self.get_parameter("clip_depth").get_parameter_value().bool_value
-    )
-    self.min_depth = self.get_parameter("min_depth").get_parameter_value().double_value
-    self.max_depth = self.get_parameter("max_depth").get_parameter_value().double_value
-    self.__compare_past_depth = (
-      self.get_parameter("comapre_past_depth").get_parameter_value().bool_value
-    )
-    self.delta_depth_min = (
-      self.get_parameter("delta_depth_min").get_parameter_value().double_value
-    )
-    self.delta_depth_max = (
-      self.get_parameter("delta_depth_max").get_parameter_value().double_value
-    )
-
     self.camera_info_handler = CameraInfoManager(
-      intrinsic_matrix_flat[0],
-      intrinsic_matrix_flat[4],
-      intrinsic_matrix_flat[2],
-      intrinsic_matrix_flat[5],
+      self.intrinsic_matrix_flat[0],
+      self.intrinsic_matrix_flat[4],
+      self.intrinsic_matrix_flat[2],
+      self.intrinsic_matrix_flat[5],
     )
 
     # synchronise callback of two independent subscriptions
@@ -214,7 +174,7 @@ class SpatialCalculator(Node):
       self.new_depths = {}
     self.bridge = CvBridge()
     self.balls_cam_msg = SpatialBallArray()
-    self.hostSpatials = HostSpatialsCalc(neighbourhood_pixels, self.__clip_depth)
+    self.hostSpatials = HostSpatialsCalc(self.neighbourhood_pixels, self.__clip_depth)
 
     self.get_logger().info("SpatialCalculator node started.")
 
@@ -298,6 +258,52 @@ class SpatialCalculator(Node):
     self.balls_cam_msg = balls_cam_msg
     # Publish the 'BallArray' message
     self.balls_location_publisher.publish(self.balls_cam_msg)
+
+  def declare_params(self):
+    self.declare_parameter("k", [0.0] * 9)
+    self.declare_parameter("coordinate_calc_method", "SinglePointDepth")
+    self.declare_parameter("host_spatials_method", "bbox_center")
+    self.declare_parameter("neighbourhood_pixels", 4)
+    self.declare_parameter("decimal_accuracy", 3)
+    self.declare_parameter("min_depth", 0.50)
+    self.declare_parameter("max_depth", 8.00)
+    self.declare_parameter("clip_depth", True)
+    self.declare_parameter("comapre_past_depth", True)
+    self.declare_parameter("delta_depth_min", 0.005)
+    self.declare_parameter("delta_depth_max", 0.500)
+    return
+
+  def read_params(self):
+    self.__decimal_accuracy = (
+      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
+    )
+    self.intrinsic_matrix_flat = (
+      self.get_parameter("k").get_parameter_value().double_array_value
+    )
+    self.__coordinate_calc_method = (
+      self.get_parameter("coordinate_calc_method").get_parameter_value().string_value
+    )
+    self.__host_spatials_method = (
+      self.get_parameter("host_spatials_method").get_parameter_value().string_value
+    )
+    self.neighbourhood_pixels = (
+      self.get_parameter("neighbourhood_pixels").get_parameter_value().integer_value
+    )
+    self.__clip_depth = (
+      self.get_parameter("clip_depth").get_parameter_value().bool_value
+    )
+    self.min_depth = self.get_parameter("min_depth").get_parameter_value().double_value
+    self.max_depth = self.get_parameter("max_depth").get_parameter_value().double_value
+    self.__compare_past_depth = (
+      self.get_parameter("comapre_past_depth").get_parameter_value().bool_value
+    )
+    self.delta_depth_min = (
+      self.get_parameter("delta_depth_min").get_parameter_value().double_value
+    )
+    self.delta_depth_max = (
+      self.get_parameter("delta_depth_max").get_parameter_value().double_value
+    )
+    return
 
   def parse_bbox(self, bbox_xywh: BoundingBox2D):
     """! Parse bbox from BoundingBox2D msg
