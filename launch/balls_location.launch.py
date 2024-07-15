@@ -44,7 +44,7 @@ def generate_launch_description():
   )
 
   common_config = os.path.join(
-    get_package_share_directory("oakd"), "config", "common.yaml"
+    get_package_share_directory("robot"), "config", "common.yaml"
   )
 
   spatial_location_config = os.path.join(
