@@ -188,7 +188,9 @@ class GoalPose(Node):
 
   def filter_balls(self, balls):
     """Filter balls of team color"""
-    team_colored_balls = [ball for ball in balls if ball.class_name == self.team_color]
+    team_colored_balls = [
+      ball for ball in balls if ball.class_name == self.team_color + "-ball"
+    ]
     return team_colored_balls
 
   def get_closest_ball(self, balls):
