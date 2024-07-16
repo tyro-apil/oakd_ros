@@ -2,8 +2,30 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import (
+  EmitEvent,
+  ExecuteProcess,
+  IncludeLaunchDescription,
+  LogInfo,
+  RegisterEventHandler,
+  TimerAction,
+)
+from launch.conditions import IfCondition
+from launch.event_handlers import (
+  OnExecutionComplete,
+  OnProcessExit,
+  OnProcessIO,
+  OnProcessStart,
+  OnShutdown,
+)
+from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import (
+  EnvironmentVariable,
+  FindExecutable,
+  LocalSubstitution,
+  PythonExpression,
+)
 
 
 def generate_launch_description():
@@ -20,7 +42,7 @@ def generate_launch_description():
 
   cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
-      [os.path.join(get_package_share_directory("oakd"), "launch"), "/driver.launch.py"]
+      [os.path.join(get_package_share_directory("oakd"), "launch/driver.launch.py")]
     ),
     launch_arguments={
       "rgb_image_topic": input_image_topic,
@@ -32,8 +54,9 @@ def generate_launch_description():
   yolov8_bringup = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
       [
-        os.path.join(get_package_share_directory("yolov8_bringup"), "launch"),
-        "/yolov8.launch.py",
+        os.path.join(
+          get_package_share_directory("yolov8_bringup"), "launch/yolov8.launch.py"
+        )
       ]
     ),
     launch_arguments={
@@ -50,8 +73,9 @@ def generate_launch_description():
   ball_location = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
       [
-        os.path.join(get_package_share_directory("oakd"), "launch"),
-        "/balls_location.launch.py",
+        os.path.join(
+          get_package_share_directory("oakd"), "launch/balls_location.launch.py"
+        )
       ]
     ),
     launch_arguments={
@@ -64,10 +88,7 @@ def generate_launch_description():
 
   goalpose = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
-      [
-        os.path.join(get_package_share_directory("oakd"), "launch"),
-        "/goalpose.launch.py",
-      ]
+      [os.path.join(get_package_share_directory("oakd"), "launch/goalpose.launch.py")]
     ),
     launch_arguments={
       "pose_topic": baselink_pose_topic,
@@ -79,29 +100,61 @@ def generate_launch_description():
 
   transforms = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
-      [
-        os.path.join(get_package_share_directory("oakd"), "launch"),
-        "/transforms.launch.py",
-      ]
+      [os.path.join(get_package_share_directory("oakd"), "launch/transforms.launch.py")]
     ),
     launch_arguments={"namespace": namespace}.items(),
   )
 
   republish = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
-      [
-        os.path.join(get_package_share_directory("oakd"), "launch"),
-        "/republish.launch.py",
-      ]
+      [os.path.join(get_package_share_directory("oakd"), "launch/republish.launch.py")]
     )
   )
 
+  dumb_process = ExecuteProcess(cmd=[["sleep 1"]], shell=True)
+
   return LaunchDescription(
     [
-      transforms,
-      cam_driver,
-      yolov8_bringup,
-      ball_location,
-      goalpose,
+      dumb_process,
+      RegisterEventHandler(
+        OnProcessStart(
+          target_action=dumb_process,
+          on_start=[
+            transforms,
+          ],
+        )
+      ),
+      RegisterEventHandler(
+        OnExecutionComplete(
+          target_action=transforms,
+          on_completion=[
+            cam_driver,
+          ],
+        )
+      ),
+      RegisterEventHandler(
+        OnExecutionComplete(
+          target_action=cam_driver,
+          on_completion=[
+            yolov8_bringup,
+          ],
+        )
+      ),
+      RegisterEventHandler(
+        OnExecutionComplete(
+          target_action=yolov8_bringup,
+          on_completion=[
+            ball_location,
+          ],
+        )
+      ),
+      RegisterEventHandler(
+        OnExecutionComplete(
+          target_action=ball_location,
+          on_completion=[
+            goalpose,
+          ],
+        )
+      ),
     ]
   )
