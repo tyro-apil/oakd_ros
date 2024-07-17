@@ -24,35 +24,18 @@ class GoalPose(Node):
   def __init__(self):
     super().__init__("goal_pose_node")
 
+    self.declare_params()
+    self.read_params()
+
     self.tf_buffer = Buffer()
     self.tf_listener = TransformListener(self.tf_buffer, self)
 
-    self.declare_parameter("timer_period_sec", 0.02)
-    self.declare_parameter("team_color", "red")
-    self.declare_parameter("ball_diameter", 0.190)
-
-    self.declare_parameter("clamp_goalpose", True)
-    self.declare_parameter("yaw_for_corners", True)
-    self.declare_parameter("yaw_90", False)
-    self.declare_parameter("lock_far_target", False)
-
-    self.declare_parameter("x_intake_offset", 0.60)
-    self.declare_parameter("y_intake_offset", 0.15)
-
-    self.declare_parameter("offset_distance", 1.0)
-    self.declare_parameter("safe_xy_limits", [0.0] * 4)
-    self.declare_parameter("goalpose_limits", [0.0] * 4)
-    self.declare_parameter("decimal_accuracy", 3)
-
-    XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
+    self.XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
 
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
-    timer_period_sec = (
-      self.get_parameter("timer_period_sec").get_parameter_value().double_value
-    )
-    self.create_timer(timer_period_sec, self.publish_state_n_goalpose)
+    self.create_timer(self.timer_period_sec, self.publish_state_n_goalpose)
 
     self.state_n_goalpose_publisher = self.create_publisher(
       StatePose, "/ball_tracker", qos_profile=qos_profile
@@ -73,6 +56,52 @@ class GoalPose(Node):
     )
     self.balls_baselink_subscriber
 
+    self.translation_map2base = None
+    self.quaternion_map2base = None
+    self.target_ball = SpatialBall()
+    self.goalpose_map = PoseStamped()
+    self.state_n_goalpose = StatePose()
+
+    self.tracked_id = None
+    self.target_ball_location = None
+    self.is_ball_tracked = Bool()
+    self.__msg_stamp = None
+
+    self.get_logger().info("Goalpose node started")
+
+  def declare_params(self):
+    self.declare_parameter("base_fblr", [0.0] * 4)
+
+    self.declare_parameter("timer_period_sec", 0.02)
+    self.declare_parameter("team_color", "red")
+    self.declare_parameter("ball_diameter", 0.190)
+
+    self.declare_parameter("clamp_goalpose", True)
+    self.declare_parameter("yaw_for_corners", True)
+    self.declare_parameter("yaw_90", False)
+    self.declare_parameter("lock_far_target", False)
+
+    self.declare_parameter("x_intake_offset", 0.60)
+    self.declare_parameter("y_intake_offset", 0.15)
+
+    self.declare_parameter("offset_distance", 1.0)
+    self.declare_parameter("safe_xy_limits", [0.0] * 4)
+    self.declare_parameter("goalpose_limits", [0.0] * 4)
+    self.declare_parameter("decimal_accuracy", 3)
+
+    self.declare_parameter("enable_align_zone", False)
+    self.declare_parameter("align_distance", 10)
+
+  def read_params(self):
+    # Base polygon w.r.t. base_link -> front, back, left, right
+    self.base_fblr = (
+      self.get_parameter("base_fblr").get_parameter_value().double_array_value
+    )
+
+    self.timer_period_sec = (
+      self.get_parameter("timer_period_sec").get_parameter_value().double_value
+    )
+
     self.__decimal_accuracy = (
       self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
     )
@@ -88,8 +117,8 @@ class GoalPose(Node):
     self.goalpose_limits = (
       self.get_parameter("goalpose_limits").get_parameter_value().double_array_value
     )
-    self.safe_xy_limits = XY_limits(*self.safe_xy_limits)
-    self.goalpose_limits = XY_limits(*self.goalpose_limits)
+    self.safe_xy_limits = self.XY_limits(*self.safe_xy_limits)
+    self.goalpose_limits = self.XY_limits(*self.goalpose_limits)
 
     self.__x_intake_offset = (
       self.get_parameter("x_intake_offset").get_parameter_value().double_value
@@ -108,18 +137,12 @@ class GoalPose(Node):
       self.get_parameter("lock_far_target").get_parameter_value().bool_value
     )
 
-    self.translation_map2base = None
-    self.quaternion_map2base = None
-    self.target_ball = SpatialBall()
-    self.goalpose_map = PoseStamped()
-    self.state_n_goalpose = StatePose()
-
-    self.tracked_id = None
-    self.target_ball_location = None
-    self.is_ball_tracked = Bool()
-    self.__msg_stamp = None
-
-    self.get_logger().info("Goalpose node started")
+    self.__enable_align_zone = (
+      self.get_parameter("enable_align_zone").get_parameter_value().bool_value
+    )
+    self.__align_distance = (
+      self.get_parameter("align_distance").get_parameter_value().double_value
+    )
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     self.translation_map2base = np.zeros(3)
@@ -222,6 +245,15 @@ class GoalPose(Node):
     target_map[1] = self.target_ball_location[1] + (
       -self.__x_intake_offset * sin(yaw) - self.__y_intake_offset * cos(yaw)
     )
+
+    if self.__yaw_90 and self.__enable_align_zone:
+      if (self.target_ball_location[1] - self.translation_map2base[1]) < (
+        self.base_fblr[0] + self.__align_distance
+      ):
+        target_map[0] = self.target_ball_location[0] + self.__y_intake_offset
+        target_map[1] = self.translation_map2base[1]
+        pass
+      pass
 
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
