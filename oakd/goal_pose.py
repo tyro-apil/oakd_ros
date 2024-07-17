@@ -93,6 +93,10 @@ class GoalPose(Node):
     self.declare_parameter("align_distance", 10)
     self.declare_parameter("x_align_tolerance", 0.1)
 
+    self.declare_parameter("enable_deadZone", False)
+    self.declare_parameter("deadZone_tolerance", 0.2)
+    self.declare_parameter("backward_distance", 0.30)
+
   def read_params(self):
     # Base polygon w.r.t. base_link -> front, back, left, right
     self.base_fblr = (
@@ -146,6 +150,16 @@ class GoalPose(Node):
     )
     self.__x_align_tolerance = (
       self.get_parameter("x_align_tolerance").get_parameter_value().double_value
+    )
+
+    self.__enable_deadZone = (
+      self.get_parameter("enable_deadZone").get_parameter_value().bool_value
+    )
+    self.__deadZone_tolerance = (
+      self.get_parameter("deadZone_tolerance").get_parameter_value().double_value
+    )
+    self.__backward_distance = (
+      self.get_parameter("backward_distance").get_parameter_value().double_value
     )
 
   def baselink_pose_callback(self, pose_msg: Odometry):
@@ -258,8 +272,11 @@ class GoalPose(Node):
       ) > self.__x_align_tolerance:
         target_map[0] = self.target_ball_location[0] + self.__y_intake_offset
         target_map[1] = self.translation_map2base[1]
-        pass
-      pass
+
+    if self.__yaw_90 and self.__enable_deadZone:
+      if self.is_target_in_deadZone():
+        target_map[0] = self.translation_map2base[0]
+        target_map[1] = self.translation_map2base[1] - self.__backward_distance
 
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
@@ -330,9 +347,28 @@ class GoalPose(Node):
     quaternion[0] = tf.transform.rotation.x
     quaternion[1] = tf.transform.rotation.y
     quaternion[2] = tf.transform.rotation.z
-    quaternion[3] = tf.transform.rotation.w
+    quaternion[3] = tf.transform.rotation.w1
 
     return translation, quaternion
+
+  def is_target_in_deadZone(self):
+    top_left = (
+      self.translation_map2base[0] + self.base_fblr[2],
+      self.translation_map2base[1] + self.base_fblr[0] + self.__deadZone_tolerance,
+    )
+    top_right = (
+      self.translation_map2base[0] + self.base_fblr[3],
+      self.translation_map2base[1] + self.base_fblr[0] + self.__deadZone_tolerance,
+    )
+    if (
+      self.target_ball_location[0] < top_left[0]
+      and self.target_ball_location[1] < top_left[1]
+    ) or (
+      self.target_ball_location[0] > top_right[0]
+      and self.target_ball_location[1] < top_right[1]
+    ):
+      return True
+    return False
 
   def clamp_target(self, target_map):
     clampped_target = target_map
