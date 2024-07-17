@@ -91,6 +91,7 @@ class GoalPose(Node):
 
     self.declare_parameter("enable_align_zone", False)
     self.declare_parameter("align_distance", 10)
+    self.declare_parameter("x_align_tolerance", 0.1)
 
   def read_params(self):
     # Base polygon w.r.t. base_link -> front, back, left, right
@@ -142,6 +143,9 @@ class GoalPose(Node):
     )
     self.__align_distance = (
       self.get_parameter("align_distance").get_parameter_value().double_value
+    )
+    self.__x_align_tolerance = (
+      self.get_parameter("x_align_tolerance").get_parameter_value().double_value
     )
 
   def baselink_pose_callback(self, pose_msg: Odometry):
@@ -249,7 +253,9 @@ class GoalPose(Node):
     if self.__yaw_90 and self.__enable_align_zone:
       if (self.target_ball_location[1] - self.translation_map2base[1]) < (
         self.base_fblr[0] + self.__align_distance
-      ):
+      ) and abs(
+        self.target_ball_location[0] - self.translation_map2base[0]
+      ) > self.__x_align_tolerance:
         target_map[0] = self.target_ball_location[0] + self.__y_intake_offset
         target_map[1] = self.translation_map2base[1]
         pass
