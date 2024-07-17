@@ -199,10 +199,10 @@ class GoalPose(Node):
     )
     target_map = [0.0] * 3
     target_map[0] = self.target_ball_location[0] + (
-      -self.__x_intake_offset * cos(yaw) - self.__y_intake_offset * sin(yaw)
+      -self.__x_intake_offset * cos(yaw) + self.__y_intake_offset * sin(yaw)
     )
     target_map[1] = self.target_ball_location[1] + (
-      -self.__x_intake_offset * sin(yaw) + self.__y_intake_offset * cos(yaw)
+      -self.__x_intake_offset * sin(yaw) - self.__y_intake_offset * cos(yaw)
     )
 
     if self.__clamp_goalpose:
