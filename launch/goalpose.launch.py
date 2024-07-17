@@ -46,6 +46,10 @@ def generate_launch_description():
     get_package_share_directory("robot"), "config", "common.yaml"
   )
 
+  base_polygon_config = os.path.join(
+    get_package_share_directory("robot"), "config", "shape.yaml"
+  )
+
   #
   # NODES
   #
@@ -54,7 +58,7 @@ def generate_launch_description():
     namespace=namespace,
     executable="goalpose_node",
     name="goalpose_node",
-    parameters=[goalpose_config, common_config],
+    parameters=[goalpose_config, common_config, base_polygon_config],
     remappings=[
       ("/odometry/filtered", pose_topic),
       ("/ball_tracker", state_n_goalpose_topic),

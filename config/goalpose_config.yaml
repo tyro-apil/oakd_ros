@@ -9,7 +9,7 @@
 
     # Offset from base_link to intake
     x_intake_offset: 0.40
-    y_intake_offset: 0.05
+    y_intake_offset: 0.00
 
     ## XY clamp limits for goalpose
     # xmin, ymin, xmax, ymax
@@ -22,3 +22,7 @@
     ## Only give absolute yaw for corners if yaw_for_corners is True
     # And if base2target distance is less than this value
     offset_distance: 1.0
+
+    ## Buffer distance for aligning intake (if always yaw = 90 degrees)
+    enable_align_zone: True
+    align_distance: 0.20
