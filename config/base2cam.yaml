@@ -5,3 +5,9 @@
 
     extrapolate: False
     set_true_z: False
+
+    clip_ball_xy: True
+    x_min: 0.45
+    x_max: 8.00
+    y_min: -0.28
+    y_max: 8.00

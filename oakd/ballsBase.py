@@ -10,34 +10,9 @@ from scipy.spatial.transform import Rotation as R
 class Cam2BaseTransform(Node):
   def __init__(self):
     super().__init__("cam2base_node")
-    self.declare_parameter("base2cam_translation", [0.0, 0.0, 0.0])
-    self.declare_parameter("base2cam_ypr", [0.0, 0.0, 0.0])
-    self.declare_parameter("ball_diameter", 0.190)
 
-    self.declare_parameter("extrapolate", False)
-    self.declare_parameter("set_true_z", False)
-    self.declare_parameter("decimal_accuracy", 3)
-
-    self.__decimal_accuracy = (
-      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
-    )
-    self.translation_base2cam = (
-      self.get_parameter("base2cam_translation")
-      .get_parameter_value()
-      .double_array_value
-    )
-    self.ypr_base2cam = (
-      self.get_parameter("base2cam_ypr").get_parameter_value().double_array_value
-    )
-    self.BALL_DIAMETER = (
-      self.get_parameter("ball_diameter").get_parameter_value().double_value
-    )
-    self.__extrapolate = (
-      self.get_parameter("extrapolate").get_parameter_value().bool_value
-    )
-    self.__set_true_z = (
-      self.get_parameter("set_true_z").get_parameter_value().bool_value
-    )
+    self.declare_params()
+    self.read_params()
 
     self.proj_base2cam = np.eye(4)
     self.proj_base2cam[:3, 3] = self.translation_base2cam
@@ -58,6 +33,55 @@ class Cam2BaseTransform(Node):
     self.balls_base_msg = SpatialBallArray()
     self.get_logger().info("Camera2Base_link coordinate transformation node started.")
 
+  def declare_params(self):
+    self.declare_parameter("base_fblr", [0.0] * 4)
+
+    self.declare_parameter("base2cam_translation", [0.0, 0.0, 0.0])
+    self.declare_parameter("base2cam_ypr", [0.0, 0.0, 0.0])
+    self.declare_parameter("ball_diameter", 0.190)
+
+    self.declare_parameter("extrapolate", False)
+    self.declare_parameter("set_true_z", False)
+    self.declare_parameter("decimal_accuracy", 3)
+
+    self.declare_parameter("clip_ball_xy", True)
+    self.declare_parameter("x_min", 0.7)
+    self.declare_parameter("x_max", 7.00)
+    self.declare_parameter("y_max", 0.28)
+    self.declare_parameter("y_min", -0.28)
+
+  def read_params(self):
+    self.base_fblr = (
+      self.get_parameter("base_fblr").get_parameter_value().double_array_value
+    )
+    self.__decimal_accuracy = (
+      self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
+    )
+    self.translation_base2cam = (
+      self.get_parameter("base2cam_translation")
+      .get_parameter_value()
+      .double_array_value
+    )
+    self.ypr_base2cam = (
+      self.get_parameter("base2cam_ypr").get_parameter_value().double_array_value
+    )
+    self.BALL_DIAMETER = (
+      self.get_parameter("ball_diameter").get_parameter_value().double_value
+    )
+    self.__extrapolate = (
+      self.get_parameter("extrapolate").get_parameter_value().bool_value
+    )
+    self.__set_true_z = (
+      self.get_parameter("set_true_z").get_parameter_value().bool_value
+    )
+    self.__clip_ball_xy = (
+      self.get_parameter("clip_ball_xy").get_parameter_value().bool_value
+    )
+    self.__x_min = self.get_parameter("x_min").get_parameter_value().double_value
+    self.__x_max = self.get_parameter("x_max").get_parameter_value().double_value
+    self.__y_max = self.get_parameter("y_max").get_parameter_value().double_value
+    self.__y_min = self.get_parameter("y_min").get_parameter_value().double_value
+
   def balls_cam_callback(self, msg: SpatialBallArray):
     # breakpoint()
     balls_base_msg = SpatialBallArray()
@@ -73,6 +97,10 @@ class Cam2BaseTransform(Node):
 
       if self.__extrapolate:
         ball_baselink_xyz = self.extrapolate(ball_baselink_xyz)
+
+      if self.__clip_ball_xy:
+        ball_baselink_xyz[0] = np.clip(ball_baselink_xyz[0], self.__x_min, self.__x_max)
+        ball_baselink_xyz[1] = np.clip(ball_baselink_xyz[1], self.__y_min, self.__y_max)
 
       ball_base_msg.position.x = round(
         float(ball_baselink_xyz[0]), self.__decimal_accuracy
