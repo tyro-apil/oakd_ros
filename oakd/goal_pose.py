@@ -30,8 +30,6 @@ class GoalPose(Node):
     self.tf_buffer = Buffer()
     self.tf_listener = TransformListener(self.tf_buffer, self)
 
-    self.XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
-
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
 
@@ -90,7 +88,7 @@ class GoalPose(Node):
     self.declare_parameter("decimal_accuracy", 3)
 
     self.declare_parameter("enable_align_zone", False)
-    self.declare_parameter("align_distance", 10)
+    self.declare_parameter("align_distance", 0.20)
     self.declare_parameter("x_align_tolerance", 0.1)
 
     self.declare_parameter("enable_deadZone", False)
@@ -98,6 +96,7 @@ class GoalPose(Node):
     self.declare_parameter("backward_distance", 0.30)
 
   def read_params(self):
+    XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
     # Base polygon w.r.t. base_link -> front, back, left, right
     self.base_fblr = (
       self.get_parameter("base_fblr").get_parameter_value().double_array_value
@@ -122,8 +121,8 @@ class GoalPose(Node):
     self.goalpose_limits = (
       self.get_parameter("goalpose_limits").get_parameter_value().double_array_value
     )
-    self.safe_xy_limits = self.XY_limits(*self.safe_xy_limits)
-    self.goalpose_limits = self.XY_limits(*self.goalpose_limits)
+    self.safe_xy_limits = XY_limits(*self.safe_xy_limits)
+    self.goalpose_limits = XY_limits(*self.goalpose_limits)
 
     self.__x_intake_offset = (
       self.get_parameter("x_intake_offset").get_parameter_value().double_value

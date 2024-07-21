@@ -33,7 +33,7 @@ def generate_launch_description():
   input_image_topic = "rgb/rect"
   depth_image_topic = "stereo/depth"
   tracking_topic = "tracking"
-  model = "o_blunder_n.pt"
+  model = "oakd_nano.pt"
   tracker = "custom_tracker.yaml"
   baselink_pose_topic = "/odometry/filtered"
   state_n_goalpose_topic = "/ball_tracker"

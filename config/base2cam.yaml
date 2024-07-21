@@ -1,13 +1,13 @@
 /**:
   ros__parameters:
-    base2cam_translation: [-0.020, 0.045, 0.645] 
-    base2cam_ypr: [-90.0, 0.0, -103.0]
+    base2cam_translation: [0.120, 0.040, 0.510] 
+    base2cam_ypr: [-90.0, 0.0, -96.5]
 
     extrapolate: False
     set_true_z: False
 
     clip_ball_xy: True
-    x_min: 0.45
-    x_max: 8.00
-    y_min: -0.28
-    y_max: 8.00
+    x_min: -1.00
+    x_max: 6.00
+    y_min: -4.00
+    y_max: 4.00
