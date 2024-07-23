@@ -29,6 +29,7 @@ class Base2MapCoordinateTransform(Node):
     self.tf_buffer = Buffer()
     self.tf_listener = TransformListener(self.tf_buffer, self)
 
+    self.declare_parameter("team_color", "blue")
     self.declare_parameter("ball_diameter", 0.190)
     self.declare_parameter("clip_ball_xy", False)
     self.declare_parameter("filter_ball_xy", False)
@@ -53,6 +54,9 @@ class Base2MapCoordinateTransform(Node):
     # )
     # self.baselink_pose_subscriber  # prevent unused variable warning
 
+    self.team_color = (
+      self.get_parameter("team_color").get_parameter_value().string_value
+    )
     self.__decimal_accuracy = (
       self.get_parameter("decimal_accuracy").get_parameter_value().integer_value
     )
@@ -75,6 +79,12 @@ class Base2MapCoordinateTransform(Node):
       self.get_parameter("xy_filter_limits").get_parameter_value().double_array_value
     )
 
+    if self.team_color == "red":
+      xy_clip_limits[2], xy_clip_limits[3] = -xy_clip_limits[3], -xy_clip_limits[2]
+      xy_filter_limits[2], xy_filter_limits[3] = (
+        -xy_filter_limits[3],
+        -xy_filter_limits[2],
+      )
     self.xy_clip_limits = XY_limits(*xy_clip_limits)
     self.xy_filter_limits = XY_limits(*xy_filter_limits)
 
