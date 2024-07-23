@@ -50,6 +50,9 @@ class MarkerBroadcaster(Node):
     self.marker_publisher = self.create_publisher(MarkerArray, "balls_detected", 10)
 
     self.balls_location_subscriber  # prevent unused variable warning
+
+    self.valid_class_names = ["red", "blue", "purple"]
+    self.valid_class_names += [name + "-ball" for name in self.valid_class_names]
     self.detected_markers = MarkerArray()
     self.get_logger().info("Marker node started")
 
@@ -112,6 +115,8 @@ class MarkerBroadcaster(Node):
     marker_array = MarkerArray()
 
     for ball in msg.spatial_balls:
+      if ball.class_name not in self.valid_class_names:
+        continue
       position = (ball.position.x, ball.position.y, ball.position.z)
 
       ## In rviz2, measurements are in meters
