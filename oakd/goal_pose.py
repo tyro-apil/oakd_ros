@@ -126,9 +126,27 @@ class GoalPose(Node):
     self.goalpose_limits = XY_limits(*self.goalpose_limits)
 
     if self.team_color == "red":
-      self.goalpose_limits.ymin, self.goalpose_limits.ymax = (
+      (
+        self.goalpose_limits.ymin,
+        self.goalpose_limits.ymax,
+        self.goalpose_limits.xmin,
+        self.goalpose_limits.xmax,
+      ) = (
         -self.goalpose_limits.ymax,
         -self.goalpose_limits.ymin,
+        -self.goalpose_limits.xmax,
+        -self.goalpose_limits.xmin,
+      )
+      (
+        self.safe_xy_limits.ymin,
+        self.safe_xy_limits.ymax,
+        self.safe_xy_limits.xmin,
+        self.safe_xy_limits.xmax,
+      ) = (
+        -self.safe_xy_limits.ymax,
+        -self.safe_xy_limits.ymin,
+        -self.safe_xy_limits.xmax,
+        -self.safe_xy_limits.xmin,
       )
 
     self.__x_intake_offset = (
@@ -323,7 +341,11 @@ class GoalPose(Node):
 
     base2ball_distance = sqrt(base2ball_vector[0] ** 2 + base2ball_vector[1] ** 2)
 
-    if self.__yaw_for_corners and base2ball_distance < self.__offset_distance:
+    if (
+      not self.yaw_90
+      and self.__yaw_for_corners
+      and base2ball_distance < self.__offset_distance
+    ):
       if (
         target_ball_location[0] < self.safe_xy_limits.xmin
         and target_ball_location[1] > self.safe_xy_limits.ymin
