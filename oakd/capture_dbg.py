@@ -18,8 +18,8 @@ class CaptureNode(Node):
 
     self.declare_parameter("enable_capture", False)
 
-    self.raw_images_path = "/home/apil/work/robocon2024/cv/live_capture/raw"
-    self.debug_images_path = "/home/apil/work/robocon2024/cv/live_capture/debug"
+    self.raw_images_path = "/home/apil/work/robocon2024/cv/live_capture/oakd/raw"
+    self.debug_images_path = "/home/apil/work/robocon2024/cv/live_capture/oakd/debug"
 
     rect_img_sub = message_filters.Subscriber(self, Image, "image_raw")
     debug_img_sub = message_filters.Subscriber(self, Image, "dbg_image")
