@@ -5,7 +5,7 @@
     clamp_goalpose: True
     yaw_for_corners: False
     yaw_90: True
-    lock_far_target: False
+    lock_far_target: True
 
     # Offset from base_link to intake
     x_intake_offset: 0.40
@@ -13,7 +13,7 @@
 
     ## XY clamp limits for goalpose
     # xmin, ymin, xmax, ymax
-    goalpose_limits:  [-1.60, -3.00, 1.60, 1.50]
+    goalpose_limits:  [-1.70, -3.50, 1.70, 1.30]
 
     ## XY limits for collision free-movement
     # xmin, ymin, xmax, ymax
@@ -26,9 +26,9 @@
     ## Buffer distance for aligning intake (if always yaw = 90 degrees)
     enable_align_zone: True
     align_distance: 0.30
-    x_align_tolerance: 0.03
+    x_align_tolerance: 0.10
 
     ## Dead zone i.e. target_ball is visible but robot cannot reach
     enable_deadZone: True
-    deadZone_tolerance: 0.10
+    deadZone_tolerance: 0.00
     backward_distance: 0.30
