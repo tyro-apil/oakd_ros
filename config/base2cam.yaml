@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     base2cam_translation: [0.120, 0.040, 0.510] 
-    base2cam_ypr: [-90.0, 0.0, -96.5]
+    base2cam_ypr: [-90.0, 0.0, -102]
 
     extrapolate: False
     set_true_z: False
