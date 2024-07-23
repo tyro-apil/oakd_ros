@@ -32,6 +32,7 @@ def generate_launch_description():
   namespace = "/oak"
   input_image_topic = "rgb/rect"
   depth_image_topic = "stereo/depth"
+  debug_image_topic = "dbg_image"
   tracking_topic = "tracking"
   model = "oakd_nano.pt"
   tracker = "custom_tracker.yaml"
@@ -67,6 +68,17 @@ def generate_launch_description():
         get_package_share_directory("robot"), "config", f"{tracker}"
       ),
       "device": device,
+    }.items(),
+  )
+
+  debug = IncludeLaunchDescription(
+    PythonLaunchDescriptionSource(
+      [os.path.join(get_package_share_directory("oakd"), "launch/debug.launch.py")]
+    ),
+    launch_arguments={
+      "input_image_topic": input_image_topic,
+      "debug_image_topic": namespace + "/yolo/" + debug_image_topic,
+      "namespace": namespace,
     }.items(),
   )
 
@@ -143,6 +155,14 @@ def generate_launch_description():
       RegisterEventHandler(
         OnExecutionComplete(
           target_action=yolov8_bringup,
+          on_completion=[
+            debug,
+          ],
+        )
+      ),
+      RegisterEventHandler(
+        OnExecutionComplete(
+          target_action=debug,
           on_completion=[
             ball_location,
           ],

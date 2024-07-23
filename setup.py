@@ -42,6 +42,7 @@ setup(
       "cam_optical2cam_ros_tf = tfs.cam_optical2cam_ros:main",
       "base2cam_optical_tf = tfs.base2cam_optical:main",
       "target_marker_node = oakd.target_marker:main",
+      "capture_node = oakd.capture_dbg:main",
     ],
   },
 )
