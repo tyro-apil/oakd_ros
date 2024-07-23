@@ -126,23 +126,13 @@ class GoalPose(Node):
     self.goalpose_limits = XY_limits(*self.goalpose_limits)
 
     if self.team_color == "red":
-      (
-        self.goalpose_limits.ymin,
-        self.goalpose_limits.ymax,
-        self.goalpose_limits.xmin,
-        self.goalpose_limits.xmax,
-      ) = (
+      self.goalpose_limits = XY_limits(
         -self.goalpose_limits.ymax,
         -self.goalpose_limits.ymin,
         -self.goalpose_limits.xmax,
         -self.goalpose_limits.xmin,
       )
-      (
-        self.safe_xy_limits.ymin,
-        self.safe_xy_limits.ymax,
-        self.safe_xy_limits.xmin,
-        self.safe_xy_limits.xmax,
-      ) = (
+      self.safe_xy_limits = XY_limits(
         -self.safe_xy_limits.ymax,
         -self.safe_xy_limits.ymin,
         -self.safe_xy_limits.xmax,
