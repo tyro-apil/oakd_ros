@@ -76,7 +76,7 @@ def generate_launch_description():
       [os.path.join(get_package_share_directory("oakd"), "launch/debug.launch.py")]
     ),
     launch_arguments={
-      "input_image_topic": input_image_topic,
+      "input_image_topic": namespace + "/" + input_image_topic,
       "debug_image_topic": namespace + "/yolo/" + debug_image_topic,
       "namespace": namespace,
     }.items(),
