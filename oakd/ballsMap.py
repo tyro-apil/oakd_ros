@@ -79,14 +79,22 @@ class Base2MapCoordinateTransform(Node):
       self.get_parameter("xy_filter_limits").get_parameter_value().double_array_value
     )
 
-    if self.team_color == "red":
-      xy_clip_limits[2], xy_clip_limits[3] = -xy_clip_limits[3], -xy_clip_limits[2]
-      xy_filter_limits[2], xy_filter_limits[3] = (
-        -xy_filter_limits[3],
-        -xy_filter_limits[2],
-      )
     self.xy_clip_limits = XY_limits(*xy_clip_limits)
     self.xy_filter_limits = XY_limits(*xy_filter_limits)
+
+    if self.team_color == "red":
+      self.xy_clip_limits = XY_limits(
+        -self.xy_clip_limits.xmax,
+        -self.xy_clip_limits.ymax,
+        -self.xy_clip_limits.xmin,
+        -self.xy_clip_limits.ymin,
+      )
+      self.xy_filter_limits = XY_limits(
+        -self.xy_filter_limits.xmax,
+        -self.xy_filter_limits.ymax,
+        -self.xy_filter_limits.xmin,
+        -self.xy_filter_limits.ymin,
+      )
 
     self.translation_map2base = None
     self.quaternion_map2base = None
