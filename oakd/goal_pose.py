@@ -4,6 +4,7 @@ Publishes goalPose message w.r.t. map frame
 
 from collections import namedtuple
 from math import atan2, cos, pi, sin, sqrt
+from typing import List
 
 import numpy as np
 import rclpy
@@ -124,6 +125,12 @@ class GoalPose(Node):
     self.safe_xy_limits = XY_limits(*self.safe_xy_limits)
     self.goalpose_limits = XY_limits(*self.goalpose_limits)
 
+    if self.team_color == "red":
+      self.goalpose_limits.ymin, self.goalpose_limits.ymax = (
+        -self.goalpose_limits.ymax,
+        -self.goalpose_limits.ymin,
+      )
+
     self.__x_intake_offset = (
       self.get_parameter("x_intake_offset").get_parameter_value().double_value
     )
@@ -172,6 +179,11 @@ class GoalPose(Node):
     self.quaternion_map2base[1] = pose_msg.pose.pose.orientation.y
     self.quaternion_map2base[2] = pose_msg.pose.pose.orientation.z
     self.quaternion_map2base[3] = pose_msg.pose.pose.orientation.w
+
+    self.T_map2base = np.eye(4)
+    self.T_map2base[:3, :3] = R.from_quat(self.quaternion_map2base).as_matrix()
+    self.T_map2base[:3, 3] = self.translation_map2base
+
     return
 
   def balls_msg_received_callback(self, SpatialBalls_msg: SpatialBallArray):
@@ -267,18 +279,20 @@ class GoalPose(Node):
     )
 
     if self.__yaw_90 and self.__enable_align_zone:
-      if (self.target_ball_location[1] - self.translation_map2base[1]) < (
-        self.base_fblr[0] + self.__align_distance
-      ) and abs(
-        self.target_ball_location[0] - self.translation_map2base[0]
-      ) > self.__x_align_tolerance:
-        target_map[0] = self.target_ball_location[0] + self.__y_intake_offset
+      if self.is_target_in_alignZone():
+        if self.team_color == "blue":
+          target_map[0] = self.translation_map2base[0] + self.__y_intake_offset
+        else:
+          target_map[0] = self.target_ball_location[0] - self.__y_intake_offset
         target_map[1] = self.translation_map2base[1]
 
     if self.__yaw_90 and self.__enable_deadZone:
       if self.is_target_in_deadZone():
         target_map[0] = self.translation_map2base[0]
-        target_map[1] = self.translation_map2base[1] - self.__backward_distance
+        if self.team_color == "blue":
+          target_map[1] = self.translation_map2base[1] - self.__backward_distance
+        else:
+          target_map[1] = self.translation_map2base[1] + self.__backward_distance
 
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
@@ -297,7 +311,10 @@ class GoalPose(Node):
 
   def get_goalPose_yaw(self, target_ball_location):
     if self.__yaw_90:
-      return pi / 2
+      if self.team_color == "blue" or self.team_color == "blue-ball":
+        return pi / 2
+      else:
+        return -pi / 2
 
     base2ball_vector = (
       target_ball_location[0] - self.translation_map2base[0],
@@ -349,28 +366,57 @@ class GoalPose(Node):
     quaternion[0] = tf.transform.rotation.x
     quaternion[1] = tf.transform.rotation.y
     quaternion[2] = tf.transform.rotation.z
-    quaternion[3] = tf.transform.rotation.w1
+    quaternion[3] = tf.transform.rotation.w
 
     return translation, quaternion
 
-  def is_target_in_deadZone(self):
-    top_left = (
-      self.translation_map2base[0] + self.base_fblr[2],
-      self.translation_map2base[1] + self.base_fblr[0] + self.__deadZone_tolerance,
-    )
-    top_right = (
-      self.translation_map2base[0] + self.base_fblr[3],
-      self.translation_map2base[1] + self.base_fblr[0] + self.__deadZone_tolerance,
-    )
+  def is_target_in_alignZone(self):
     if (
-      self.target_ball_location[0] < top_left[0]
-      and self.target_ball_location[1] < top_left[1]
-    ) or (
-      self.target_ball_location[0] > top_right[0]
-      and self.target_ball_location[1] < top_right[1]
-    ):
+      abs(self.target_ball_location[1] - self.translation_map2base[1])
+      < self.base_fblr[0] + self.__align_distance
+    ) and abs(
+      self.target_ball_location[0] - self.translation_map2base[0]
+    ) > self.__x_align_tolerance:
       return True
     return False
+
+  def is_target_in_deadZone(self):
+    if self.team_color == "blue":
+      top_left = (
+        self.translation_map2base[0] - self.base_fblr[2],
+        self.translation_map2base[1] + (self.base_fblr[0] + self.__deadZone_tolerance),
+      )
+      top_right = (
+        self.translation_map2base[0] + self.base_fblr[3],
+        self.translation_map2base[1] + (self.base_fblr[0] + self.__deadZone_tolerance),
+      )
+      if (
+        self.target_ball_location[0] < top_left[0]
+        and self.target_ball_location[1] < top_left[1]
+      ) or (
+        self.target_ball_location[0] > top_right[0]
+        and self.target_ball_location[1] < top_right[1]
+      ):
+        return True
+      return False
+    else:
+      top_left = (
+        self.translation_map2base[0] + self.base_fblr[2],
+        self.translation_map2base[1] - (self.base_fblr[0] + self.__deadZone_tolerance),
+      )
+      top_right = (
+        self.translation_map2base[0] - self.base_fblr[3],
+        self.translation_map2base[1] - (self.base_fblr[0] + self.__deadZone_tolerance),
+      )
+      if (
+        self.target_ball_location[0] > top_left[0]
+        and self.target_ball_location[1] > top_left[1]
+      ) or (
+        self.target_ball_location[0] < top_right[0]
+        and self.target_ball_location[1] > top_right[1]
+      ):
+        return True
+      return False
 
   def clamp_target(self, target_map):
     clampped_target = target_map
@@ -386,6 +432,14 @@ class GoalPose(Node):
       clampped_target[1] = self.goalpose_limits.ymax
 
     return clampped_target
+
+  def convert_coordinate(self, tf_matrix: np.ndarray, point: List[float]) -> np.ndarray:
+    point.append(1.0)
+    homogeneous_point = np.array(point, dtype=np.float32)
+    converted_point = np.dot(tf_matrix, homogeneous_point.reshape((-1, 1)))
+    # dehomogenize
+    point = converted_point / converted_point[3]
+    return point[:3].ravel()
 
   def set_goalpose_map(self, goalpose_map):
     self.goalpose_map = goalpose_map
