@@ -1,3 +1,4 @@
+import time
 from collections import namedtuple
 from typing import List
 
@@ -19,24 +20,18 @@ class Base2MapCoordinateTransform(Node):
   def __init__(self):
     super().__init__("base2map_node")
 
+    self.create_timer(0.05, self.timer_callback)
+
+    self.declare_params()
+    self.read_params()
+
     qos_profile = QoSProfile(depth=10)
     qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
-
-    XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
 
     self.__to_frame_rel = "base_link"
     self.__from_frame_rel = "map"
     self.tf_buffer = Buffer()
     self.tf_listener = TransformListener(self.tf_buffer, self)
-
-    self.declare_parameter("team_color", "blue")
-    self.declare_parameter("ball_diameter", 0.190)
-    self.declare_parameter("clip_ball_xy", False)
-    self.declare_parameter("filter_ball_xy", False)
-    self.declare_parameter("xy_clip_limits", [0.0] * 4)
-    self.declare_parameter("xy_filter_limits", [0.0] * 4)
-    self.declare_parameter("set_fixed_z", True)
-    self.declare_parameter("decimal_accuracy", 3)
 
     ## Publisher of ball position data in real world
     self.balls_map_publisher = self.create_publisher(SpatialBallArray, "balls_map", 10)
@@ -54,6 +49,34 @@ class Base2MapCoordinateTransform(Node):
     # )
     # self.baselink_pose_subscriber  # prevent unused variable warning
 
+    if self.__enable_delay:
+      self.balls_msg_to_send = None
+      self.current_balls_msg = None
+
+      self.last_updated_time = time.time()
+
+    self.translation_map2base = None
+    self.quaternion_map2base = None
+    self.proj_map2base = None
+
+    self.tf_matrix_map2base = None
+    self.tf_matrix_current2past_pose = None
+
+    self.get_logger().info("Baselink2map coordinate transformation node started.")
+
+  def declare_params(self):
+    self.declare_parameter("team_color", "blue")
+    self.declare_parameter("ball_diameter", 0.190)
+    self.declare_parameter("clip_ball_xy", False)
+    self.declare_parameter("filter_ball_xy", False)
+    self.declare_parameter("xy_clip_limits", [0.0] * 4)
+    self.declare_parameter("xy_filter_limits", [0.0] * 4)
+    self.declare_parameter("set_fixed_z", True)
+    self.declare_parameter("decimal_accuracy", 3)
+    self.declare_parameter("enable_delay", False)
+    self.declare_parameter("delay_time", 0.25)
+
+  def read_params(self):
     self.team_color = (
       self.get_parameter("team_color").get_parameter_value().string_value
     )
@@ -78,6 +101,14 @@ class Base2MapCoordinateTransform(Node):
     xy_filter_limits = (
       self.get_parameter("xy_filter_limits").get_parameter_value().double_array_value
     )
+    self.__enable_delay = (
+      self.get_parameter("enable_delay").get_parameter_value().bool_value
+    )
+    self.delay_time = (
+      self.get_parameter("delay_time").get_parameter_value().double_value
+    )
+
+    XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
 
     self.xy_clip_limits = XY_limits(*xy_clip_limits)
     self.xy_filter_limits = XY_limits(*xy_filter_limits)
@@ -95,15 +126,28 @@ class Base2MapCoordinateTransform(Node):
         -self.xy_filter_limits.xmin,
         -self.xy_filter_limits.ymin,
       )
+    return
 
-    self.translation_map2base = None
-    self.quaternion_map2base = None
-    self.proj_map2base = None
+  def timer_callback(self):
+    if self.current_balls_msg is None:
+      return
 
-    self.tf_matrix_map2base = None
-    self.tf_matrix_current2past_pose = None
+    if not self.__enable_delay:
+      self.balls_map_publisher.publish(self.current_balls_msg)
+      return
 
-    self.get_logger().info("Baselink2map coordinate transformation node started.")
+    if self.balls_msg_to_send is None:
+      self.balls_msg_to_send = self.current_balls_msg
+      self.last_updated_time = time.time()
+      self.balls_map_publisher.publish(self.balls_msg_to_send)
+      return
+
+    current_time = time.time()
+    if (current_time - self.last_updated_time) >= self.delay_time:
+      self.balls_msg_to_send = self.current_balls_msg
+      self.last_updated_time = current_time
+    self.balls_map_publisher.publish(self.balls_msg_to_send)
+    return
 
   def balls_baselink_callback(self, msg: SpatialBallArray) -> None:
     """Set the balls_map_msg after receiving coordinates of balls w.r.t. baselink"""
@@ -160,7 +204,7 @@ class Base2MapCoordinateTransform(Node):
     if self.__filter_ball_xy:
       balls_map_msg.spatial_balls = self.filter_balls(balls_map_msg.spatial_balls)
 
-    self.balls_map_publisher.publish(balls_map_msg)
+    self.current_balls_msg = balls_map_msg
     return
 
   def filter_balls(self, balls: List[SpatialBall]) -> List[SpatialBall]:
