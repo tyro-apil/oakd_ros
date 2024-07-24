@@ -36,8 +36,6 @@ def generate_launch_description():
   tracking_topic = "tracking"
   model = "oakd_nano.pt"
   tracker = "custom_tracker.yaml"
-  half_precision = False
-  classes = [0, 1, 2]
   baselink_pose_topic = "/odometry/filtered"
   state_n_goalpose_topic = "/ball_tracker"
   ball_goalpose_topic = "/ball_pose_topic"
@@ -70,8 +68,6 @@ def generate_launch_description():
         get_package_share_directory("robot"), "config", f"{tracker}"
       ),
       "device": device,
-      "half_precision": half_precision,
-      "classes": classes,
     }.items(),
   )
 
