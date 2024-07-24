@@ -17,6 +17,7 @@ class CaptureNode(Node):
     super().__init__("capture_node")
 
     self.declare_parameter("enable_capture", False)
+    self.declare_parameter("capture_fraction", 0.10)
 
     self.raw_images_path = "/home/apil/work/robocon2024/cv/live_capture/oakd/raw"
     self.debug_images_path = "/home/apil/work/robocon2024/cv/live_capture/oakd/debug"
@@ -32,6 +33,9 @@ class CaptureNode(Node):
     self.__enable_capture = (
       self.get_parameter("enable_capture").get_parameter_value().bool_value
     )
+    self.__capture_fraction = (
+      self.get_parameter("capture_fraction").get_parameter_value().double_value
+    )
     self.bridge = CvBridge()
     self.last_captured_time = time.time()
 
@@ -46,13 +50,14 @@ class CaptureNode(Node):
         # self.get_logger().info(
         #   f"Capture is now {'enabled' if self.__enable_capture else 'disabled'}"
         # )
-    return SetParametersResult(successful=True)
+        return SetParametersResult(successful=True)
+    return SetParametersResult(successful=False)
 
   def img_received_callback(self, rect_img_msg: Image, debug_img_msg: Image):
     current_time = time.time()
     if current_time - self.last_captured_time < 1.0:
       return
-    if random.random() < 0.05 or self.enable_capture:
+    if random.random() < self.__capture_fraction or self.__enable_capture:
       stamp = rect_img_msg.header.stamp
       file_name = f"{stamp.sec}_{stamp.nanosec}.jpg"
 
