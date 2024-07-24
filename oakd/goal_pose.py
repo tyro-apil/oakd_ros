@@ -319,7 +319,7 @@ class GoalPose(Node):
 
   def get_goalPose_yaw(self, target_ball_location):
     if self.__yaw_90:
-      if self.team_color == "blue" or self.team_color == "blue-ball":
+      if self.team_color == "blue":
         return pi / 2
       else:
         return -pi / 2
