@@ -49,9 +49,9 @@ class Base2MapCoordinateTransform(Node):
     # )
     # self.baselink_pose_subscriber  # prevent unused variable warning
 
+    self.current_balls_msg = None
     if self.__enable_delay:
       self.balls_msg_to_send = None
-      self.current_balls_msg = None
 
       self.last_updated_time = time.time()
 
