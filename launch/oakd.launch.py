@@ -3,6 +3,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
+  DeclareLaunchArgument,
   EmitEvent,
   ExecuteProcess,
   IncludeLaunchDescription,
@@ -23,6 +24,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import (
   EnvironmentVariable,
   FindExecutable,
+  LaunchConfiguration,
   LocalSubstitution,
   PythonExpression,
 )
@@ -40,6 +42,7 @@ def generate_launch_description():
   state_n_goalpose_topic = "/ball_tracker"
   ball_goalpose_topic = "/ball_pose_topic"
   device = "cuda:0"
+  iou = "0.8"
 
   cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
@@ -68,6 +71,7 @@ def generate_launch_description():
         get_package_share_directory("robot"), "config", f"{tracker}"
       ),
       "device": device,
+      "iou": iou,
     }.items(),
   )
 
