@@ -96,6 +96,10 @@ class GoalPose(Node):
     self.declare_parameter("deadZone_tolerance", 0.2)
     self.declare_parameter("backward_distance", 0.30)
 
+    self.declare_parameter("dash_at_end", True)
+    self.declare_parameter("dash_zone", 0.60)
+    self.declare_parameter("dash_distance", 0.20)
+
   def read_params(self):
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
     # Base polygon w.r.t. base_link -> front, back, left, right
@@ -175,6 +179,16 @@ class GoalPose(Node):
     self.__backward_distance = (
       self.get_parameter("backward_distance").get_parameter_value().double_value
     )
+
+    self.__dash_at_end = (
+      self.get_parameter("dash_at_end").get_parameter_value().bool_value
+    )
+    self.dash_zone = self.get_parameter("dash_zone").get_parameter_value().double_value
+    self.dash_distance = (
+      self.get_parameter("dash_distance").get_parameter_value().double_value
+    )
+
+    # self.dash_distance = self.dash_zone - self.base_fblr[0]
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     self.translation_map2base = np.zeros(3)
@@ -301,6 +315,13 @@ class GoalPose(Node):
           target_map[1] = self.translation_map2base[1] - self.__backward_distance
         else:
           target_map[1] = self.translation_map2base[1] + self.__backward_distance
+
+    if self.__yaw_90 and self.__dash_at_end:
+      if abs(target_map[1] - self.translation_map2base[1]) <= self.dash_zone:
+        if self.team_color == "blue":
+          target_map[1] = self.translation_map2base[1] + self.dash_distance
+        else:
+          target_map[1] = self.translation_map2base[1] - self.dash_distance
 
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
