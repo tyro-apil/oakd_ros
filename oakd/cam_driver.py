@@ -130,7 +130,9 @@ class DepthAICameraHandler(Node):
     msg_header.frame_id = "oak_rgb_camera_link_optical"
 
     # Resize the opencv frames
-    depth_frame = cv2.resize(depth_frame, (1280, 720), interpolation=cv2.INTER_AREA)
+    depth_frame = cv2.resize(
+      depth_frame, (self.__rgb_width, self.__rgb_height), interpolation=cv2.INTER_LINEAR
+    )
 
     # Convert the frame to a ROS Image message and publish it
     rgbImg_ros_msg = self.bridge.cv2_to_imgmsg(
@@ -160,6 +162,8 @@ class DepthAICameraHandler(Node):
     self.declare_parameter("contrast", 0)
     self.declare_parameter("saturation", 0)
     self.declare_parameter("sharpness", 0)
+    self.declare_parameter("luma_denoise", 1)
+    self.declare_parameter("chroma_denoise", 1)
 
   def get_params(self):
     self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
@@ -181,6 +185,12 @@ class DepthAICameraHandler(Node):
       self.get_parameter("saturation").get_parameter_value().integer_value
     )
     self.sharpness = self.get_parameter("sharpness").get_parameter_value().integer_value
+    self.luma_denoise = (
+      self.get_parameter("luma_denoise").get_parameter_value().integer_value
+    )
+    self.chroma_denoise = (
+      self.get_parameter("chroma_denoise").get_parameter_value().integer_value
+    )
 
   def create_pipeline(self):
     # Create pipeline
@@ -207,6 +217,7 @@ class DepthAICameraHandler(Node):
 
     self.rgb_cam_socket = dai.CameraBoardSocket.CAM_A
 
+    # self.camRgb.Properties.sen
     self.camRgb.setBoardSocket(self.rgb_cam_socket)
     self.camRgb.setPreviewSize(self.__rgb_width, self.__rgb_height)
     self.camRgb.Properties.previewKeepAspectRatio = True
@@ -260,6 +271,9 @@ class DepthAICameraHandler(Node):
     ctrl.setContrast(self.contrast)
     ctrl.setSaturation(self.saturation)
     ctrl.setSharpness(self.sharpness)
+
+    ctrl.setLumaDenoise(self.luma_denoise)
+    ctrl.setChromaDenoise(self.chroma_denoise)
 
     return ctrl
 
