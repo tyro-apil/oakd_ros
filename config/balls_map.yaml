@@ -4,7 +4,7 @@
     filter_ball_xy: True
     set_fixed_z: True
 
-    enable_delay: True
+    enable_delay: False
     delay_time: 0.25
 
     # xmin, ymin, xmax, ymax
