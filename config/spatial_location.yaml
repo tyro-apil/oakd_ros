@@ -13,10 +13,10 @@
 
     clip_depth: True
     # In meters
-    min_depth: 0.60
+    min_depth: 0.30
     max_depth: 8.00
 
     compare_past_depth: True
     # In meters
-    delta_depth_min: 0.010
-    delta_depth_max: 0.750
+    delta_depth_min: 0.030
+    delta_depth_max: 1.000
