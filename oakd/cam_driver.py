@@ -165,6 +165,9 @@ class DepthAICameraHandler(Node):
     self.declare_parameter("luma_denoise", 1)
     self.declare_parameter("chroma_denoise", 1)
 
+    self.declare_parameter("auto_focus", True)
+    self.declare_parameter("lensPos", 50)
+
   def get_params(self):
     self.__fps = self.get_parameter("fps").get_parameter_value().integer_value
     self.__rgb_width = self.get_parameter("width").get_parameter_value().integer_value
@@ -172,6 +175,8 @@ class DepthAICameraHandler(Node):
     self.__set_alpha = self.get_parameter("set_alpha").get_parameter_value().bool_value
     self.__alpha = self.get_parameter("alpha").get_parameter_value().double_value
 
+    self.auto_focus = self.get_parameter("auto_focus").get_parameter_value().bool_value
+    self.lensPos = self.get_parameter("lensPos").get_parameter_value().integer_value
     self.auto_exp = self.get_parameter("auto_exp").get_parameter_value().bool_value
     self.auto_wb = self.get_parameter("auto_wb").get_parameter_value().bool_value
     self.exp_time = self.get_parameter("exp_time").get_parameter_value().integer_value
@@ -256,6 +261,11 @@ class DepthAICameraHandler(Node):
 
   def create_camera_control(self):
     ctrl = dai.CameraControl()
+
+    if self.auto_focus:
+      ctrl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
+    else:
+      ctrl.setManualFocus(self.lensPos)
 
     if self.auto_exp:
       ctrl.setAutoExposureEnable()
