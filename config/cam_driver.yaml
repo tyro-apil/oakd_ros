@@ -2,7 +2,7 @@
   ros__parameters:
     width: 1280
     height: 720
-    fps: 30
+    fps: 20
 
     distortion_model: 'rational_polynomial'
     d: [7.613864421844482, 17.2153263092041, 0.00012345814320724458, -0.00020271474204491824, -1.0174853801727295, 7.641190528869629, 19.72230339050293, 1.2936210632324219, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -11,16 +11,16 @@
 
     # Camera controls
     auto_exp: False
-    # auto_focus: True
+    auto_focus: True
     auto_wb: True
 
     exp_time: 49000  # in microseconds-> 1..33000
-    # focus: 0              # far...near: 0...255
+    lensPos: 50              # far...near: 0...255
     wb: 4000   # in kelvin-> 1000..12000
-    iso: 400  # 100..1600
+    iso: 500 # 100..1600
 
     brightness: 0       # -10..10
-    contrast: 0         # -10..10
+    contrast: 1         # -10..10
     saturation: 5        # -10..10
     sharpness: 0         # 0..4
     luma_denoise: 0      # 0..4
