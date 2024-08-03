@@ -31,10 +31,11 @@
     ## Buffer distance for aligning intake (if always yaw = 90 degrees)
     enable_align_zone: True
     align_distance: 0.30
-    x_align_tolerance: 0.05
+    x_align_tolerance: 0.10
 
     ## Dead zone i.e. target_ball is visible but robot cannot reach
     enable_deadZone: True
     deadZone_tolerance: 0.00
     increase_deadZone_x: 0.05
     backward_distance: 0.30
+
