@@ -17,11 +17,11 @@
     exp_time: 49000  # in microseconds-> 1..33000
     lensPos: 50              # far...near: 0...255
     wb: 4000   # in kelvin-> 1000..12000
-    iso: 500 # 100..1600
+    iso: 800 # 100..1600
 
     brightness: 0       # -10..10
     contrast: 1         # -10..10
-    saturation: 5        # -10..10
+    saturation: 4        # -10..10
     sharpness: 0         # 0..4
     luma_denoise: 0      # 0..4
     chroma_denoise: 4    # 0..4    
