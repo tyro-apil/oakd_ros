@@ -88,17 +88,18 @@ class GoalPose(Node):
     self.declare_parameter("goalpose_limits", [0.0] * 4)
     self.declare_parameter("decimal_accuracy", 3)
 
+    self.declare_parameter("enable_dash_at_end", True)
+    self.declare_parameter("dash_zone", 0.60)
+    self.declare_parameter("dash_distance", 0.20)
+
     self.declare_parameter("enable_align_zone", False)
     self.declare_parameter("align_distance", 0.20)
     self.declare_parameter("x_align_tolerance", 0.1)
 
     self.declare_parameter("enable_deadZone", False)
     self.declare_parameter("deadZone_tolerance", 0.2)
+    self.declare_parameter("increase_deadZone_x", 0.2)
     self.declare_parameter("backward_distance", 0.30)
-
-    self.declare_parameter("dash_at_end", True)
-    self.declare_parameter("dash_zone", 0.60)
-    self.declare_parameter("dash_distance", 0.20)
 
   def read_params(self):
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
@@ -160,6 +161,14 @@ class GoalPose(Node):
       self.get_parameter("lock_far_target").get_parameter_value().bool_value
     )
 
+    self.__enable_dash_at_end = (
+      self.get_parameter("enable_dash_at_end").get_parameter_value().bool_value
+    )
+    self.dash_zone = self.get_parameter("dash_zone").get_parameter_value().double_value
+    self.dash_distance = (
+      self.get_parameter("dash_distance").get_parameter_value().double_value
+    )
+
     self.__enable_align_zone = (
       self.get_parameter("enable_align_zone").get_parameter_value().bool_value
     )
@@ -176,16 +185,11 @@ class GoalPose(Node):
     self.__deadZone_tolerance = (
       self.get_parameter("deadZone_tolerance").get_parameter_value().double_value
     )
+    self.__increase_deadZone_x = (
+      self.get_parameter("increase_deadZone_x").get_parameter_value().double_value
+    )
     self.__backward_distance = (
       self.get_parameter("backward_distance").get_parameter_value().double_value
-    )
-
-    self.__dash_at_end = (
-      self.get_parameter("dash_at_end").get_parameter_value().bool_value
-    )
-    self.dash_zone = self.get_parameter("dash_zone").get_parameter_value().double_value
-    self.dash_distance = (
-      self.get_parameter("dash_distance").get_parameter_value().double_value
     )
 
     # self.dash_distance = self.dash_zone - self.base_fblr[0]
@@ -300,6 +304,13 @@ class GoalPose(Node):
       -self.__x_intake_offset * sin(yaw) - self.__y_intake_offset * cos(yaw)
     )
 
+    if self.__yaw_90 and self.__enable_dash_at_end:
+      if self.is_target_in_dashZone():
+        if self.team_color == "blue":
+          target_map[1] = self.translation_map2base[1] + self.dash_distance
+        else:
+          target_map[1] = self.translation_map2base[1] - self.dash_distance
+
     if self.__yaw_90 and self.__enable_align_zone:
       if self.is_target_in_alignZone():
         if self.team_color == "blue":
@@ -315,13 +326,6 @@ class GoalPose(Node):
           target_map[1] = self.translation_map2base[1] - self.__backward_distance
         else:
           target_map[1] = self.translation_map2base[1] + self.__backward_distance
-
-    if self.__yaw_90 and self.__dash_at_end:
-      if abs(target_map[1] - self.translation_map2base[1]) <= self.dash_zone:
-        if self.team_color == "blue":
-          target_map[1] = self.translation_map2base[1] + self.dash_distance
-        else:
-          target_map[1] = self.translation_map2base[1] - self.dash_distance
 
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
@@ -403,24 +407,31 @@ class GoalPose(Node):
 
     return translation, quaternion
 
+  def is_target_in_dashZone(self):
+    if (
+      abs(self.target_ball_location[1] - self.translation_map2base[1]) <= self.dash_zone
+    ):
+      return True
+    return False
+
   def is_target_in_alignZone(self):
     if (
       abs(self.target_ball_location[1] - self.translation_map2base[1])
-      < self.base_fblr[0] + self.__align_distance
+      <= self.base_fblr[0] + self.__align_distance
     ) and abs(
       self.target_ball_location[0] - self.translation_map2base[0]
-    ) > self.__x_align_tolerance:
+    ) >= self.__x_align_tolerance:
       return True
     return False
 
   def is_target_in_deadZone(self):
     if self.team_color == "blue":
       top_left = (
-        self.translation_map2base[0] - self.base_fblr[2],
+        self.translation_map2base[0] - (self.base_fblr[2] - self.__increase_deadZone_x),
         self.translation_map2base[1] + (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       top_right = (
-        self.translation_map2base[0] + self.base_fblr[3],
+        self.translation_map2base[0] + (self.base_fblr[3] - self.__increase_deadZone_x),
         self.translation_map2base[1] + (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       if (
@@ -434,11 +445,11 @@ class GoalPose(Node):
       return False
     else:
       top_left = (
-        self.translation_map2base[0] + self.base_fblr[2],
+        self.translation_map2base[0] + (self.base_fblr[2] - self.__increase_deadZone_x),
         self.translation_map2base[1] - (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       top_right = (
-        self.translation_map2base[0] - self.base_fblr[3],
+        self.translation_map2base[0] - (self.base_fblr[3] - self.__increase_deadZone_x),
         self.translation_map2base[1] - (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       if (
