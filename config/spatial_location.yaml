@@ -18,5 +18,5 @@
 
     compare_past_depth: True
     # In meters
-    delta_depth_min: 0.030
+    delta_depth_min: 0.050
     delta_depth_max: 1.000
