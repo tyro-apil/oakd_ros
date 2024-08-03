@@ -302,14 +302,15 @@ class GoalPose(Node):
     )
     target_map[1] = self.target_ball_location[1] + (
       -self.__x_intake_offset * sin(yaw) - self.__y_intake_offset * cos(yaw)
-    )
+    )      
 
-    if self.__yaw_90 and self.__enable_dash_at_end:
-      if self.is_target_in_dashZone():
+    if self.__yaw_90 and self.__enable_deadZone:
+      if self.is_target_in_deadZone():
+        target_map[0] = self.translation_map2base[0]
         if self.team_color == "blue":
-          target_map[1] = self.translation_map2base[1] + self.dash_distance
+          target_map[1] = self.translation_map2base[1] - self.__backward_distance
         else:
-          target_map[1] = self.translation_map2base[1] - self.dash_distance
+          target_map[1] = self.translation_map2base[1] + self.__backward_distance
 
     if self.__yaw_90 and self.__enable_align_zone:
       if self.is_target_in_alignZone():
@@ -319,13 +320,12 @@ class GoalPose(Node):
           target_map[0] = self.target_ball_location[0] - self.__y_intake_offset
         target_map[1] = self.translation_map2base[1]
 
-    if self.__yaw_90 and self.__enable_deadZone:
-      if self.is_target_in_deadZone():
-        target_map[0] = self.translation_map2base[0]
+    if self.__yaw_90 and self.__enable_dash_at_end:
+      if self.is_target_in_dashZone():
         if self.team_color == "blue":
-          target_map[1] = self.translation_map2base[1] - self.__backward_distance
+          target_map[1] = self.translation_map2base[1] + self.dash_distance
         else:
-          target_map[1] = self.translation_map2base[1] + self.__backward_distance
+          target_map[1] = self.translation_map2base[1] - self.dash_distance
 
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
