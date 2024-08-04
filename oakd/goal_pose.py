@@ -493,25 +493,25 @@ class GoalPose(Node):
           target_map[1] = self.translation_map2base[1] - self.dash_distance
 
     if self.__yaw_90 and self.__enable_incremental_dash:
-      # convert to a hsv frame
-      hsv_image = cv2.cvtColor(self.recent_rgb_image, cv2.COLOR_BGR2HSV)
+      if self.recent_rgb_image is not None:
+        # convert to a hsv frame
+        hsv_image = cv2.cvtColor(self.recent_rgb_image, cv2.COLOR_BGR2HSV)
 
-      # get masks from hsv frame
-      team_color_mask = self.get_mask(hsv_image, self.team_color)
+        # get masks from hsv frame
+        team_color_mask = self.get_mask(hsv_image, self.team_color)
 
-      # check if team color is within roi
-      # get match percentage of team color in roi
-      match_percent = self.compute_match_percent(
-        hsv_image, self.incremental_dash_roi, team_color_mask
-      )
+        # check if team color is within roi
+        # get match percentage of team color in roi
+        match_percent = self.compute_match_percent(
+          hsv_image, self.incremental_dash_roi, team_color_mask
+        )
 
-      # dash in y-direction if match percentage is above threshold
-      if match_percent > self.roi_match_fraction:
-        if self.team_color == "blue":
-          target_map[1] += self.y_increment_dash
-        else:
-          target_map[1] -= self.y_increment_dash
-      pass
+        # dash in y-direction if match percentage is above threshold
+        if match_percent > self.roi_match_fraction:
+          if self.team_color == "blue":
+            target_map[1] = self.translation_map2base[1] + self.y_increment_dash
+          else:
+            target_map[1] = self.translation_map2base[1] - self.y_increment_dash
 
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
