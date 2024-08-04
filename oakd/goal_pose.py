@@ -2,20 +2,28 @@
 Publishes goalPose message w.r.t. map frame
 """
 
+import time
 from collections import namedtuple
 from math import atan2, cos, pi, sin, sqrt
-from typing import List
-import time
+from typing import List, Tuple
 
+import cv2
 import numpy as np
 import rclpy
+from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped, TransformStamped
 from nav_msgs.msg import Odometry
 from oakd_msgs.msg import SpatialBall, SpatialBallArray, StatePose
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.qos import (
+  QoSDurabilityPolicy,
+  QoSHistoryPolicy,
+  QoSProfile,
+  QoSReliabilityPolicy,
+)
 from rclpy.time import Duration, Time
 from scipy.spatial.transform import Rotation as R
+from sensor_msgs.msg import Image
 from std_msgs.msg import Bool
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
@@ -54,7 +62,19 @@ class GoalPose(Node):
     self.balls_baselink_subscriber = self.create_subscription(
       SpatialBallArray, "balls_map", self.balls_msg_received_callback, 10
     )
+
+    image_qos_profile = QoSProfile(
+      reliability=QoSReliabilityPolicy.BEST_EFFORT,
+      history=QoSHistoryPolicy.KEEP_LAST,
+      durability=QoSDurabilityPolicy.VOLATILE,
+      depth=1,
+    )
     self.balls_baselink_subscriber
+    self.img_subscriber = self.create_subscription(
+      Image, "image_raw", self.img_callback, qos_profile=image_qos_profile
+    )
+    self.bridge = CvBridge()
+    self.recent_rgb_image = None
 
     self.translation_map2base = None
     self.quaternion_map2base = None
@@ -104,7 +124,41 @@ class GoalPose(Node):
 
     self.declare_parameter("enable_continuous_goalpose", False)
     self.declare_parameter("continouse_goalpose_duration", 0.100)
-    
+
+    self.declare_parameter("enable_incremental_dash", False)
+    self.declare_parameter("incremental_dash_roi", [0] * 4)
+    self.declare_parameter("x_increment_dash", 0.0)
+    self.declare_parameter("y_increment_dash", 0.0)
+    self.declare_parameter("roi_match_fraction", 0.0)
+
+    self.declare_parameter("red1_h_low", 0)
+    self.declare_parameter("red1_s_low", 100)
+    self.declare_parameter("red1_v_low", 40)
+    self.declare_parameter("red1_h_high", 15)
+    self.declare_parameter("red1_s_high", 255)
+    self.declare_parameter("red1_v_high", 235)
+
+    self.declare_parameter("red2_h_low", 165)
+    self.declare_parameter("red2_s_low", 115)
+    self.declare_parameter("red2_v_low", 65)
+    self.declare_parameter("red2_h_high", 185)
+    self.declare_parameter("red2_s_high", 255)
+    self.declare_parameter("red2_v_high", 210)
+
+    self.declare_parameter("blue1_h_low", 80)
+    self.declare_parameter("blue1_s_low", 130)
+    self.declare_parameter("blue1_v_low", 30)
+    self.declare_parameter("blue1_h_high", 110)
+    self.declare_parameter("blue1_s_high", 170)
+    self.declare_parameter("blue1_v_high", 90)
+
+    self.declare_parameter("blue2_h_low", 100)
+    self.declare_parameter("blue2_s_low", 100)
+    self.declare_parameter("blue2_v_low", 50)
+    self.declare_parameter("blue2_h_high", 115)
+    self.declare_parameter("blue2_s_high", 230)
+    self.declare_parameter("blue2_v_high", 230)
+
   def read_params(self):
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
     # Base polygon w.r.t. base_link -> front, back, left, right
@@ -200,8 +254,110 @@ class GoalPose(Node):
       self.get_parameter("enable_continuous_goalpose").get_parameter_value().bool_value
     )
     self.continuous_goalpose_duration = (
-      self.get_parameter("continuous_goalpose_duration").get_parameter_value().double_value
+      self.get_parameter("continuous_goalpose_duration")
+      .get_parameter_value()
+      .double_value
     )
+
+    self.__enable_incremental_dash = (
+      self.get_parameter("enable_incremental_dash").get_parameter_value().bool_value
+    )
+    self.incremental_dash_roi = (
+      self.get_parameter("incremental_dash_roi")
+      .get_parameter_value()
+      .double_array_value
+    )
+    self.incremental_dash_roi = [int(i) for i in self.incremental_dash_roi]
+    self.x_increment_dash = (
+      self.get_parameter("x_increment_dash").get_parameter_value().double_value
+    )
+    self.y_increment_dash = (
+      self.get_parameter("y_increment_dash").get_parameter_value().double_value
+    )
+    self.roi_match_fraction = (
+      self.get_parameter("roi_match_fraction").get_parameter_value().double_value
+    )
+
+    self.red1_h_low = (
+      self.get_parameter("red1_h_low").get_parameter_value().integer_value
+    )
+    self.red1_s_low = (
+      self.get_parameter("red1_s_low").get_parameter_value().integer_value
+    )
+    self.red1_v_low = (
+      self.get_parameter("red1_v_low").get_parameter_value().integer_value
+    )
+    self.red1_h_high = (
+      self.get_parameter("red1_h_high").get_parameter_value().integer_value
+    )
+    self.red1_s_high = (
+      self.get_parameter("red1_s_high").get_parameter_value().integer_value
+    )
+    self.red1_v_high = (
+      self.get_parameter("red1_v_high").get_parameter_value().integer_value
+    )
+
+    self.red2_h_low = (
+      self.get_parameter("red2_h_low").get_parameter_value().integer_value
+    )
+    self.red2_s_low = (
+      self.get_parameter("red2_s_low").get_parameter_value().integer_value
+    )
+    self.red2_v_low = (
+      self.get_parameter("red2_v_low").get_parameter_value().integer_value
+    )
+    self.red2_h_high = (
+      self.get_parameter("red2_h_high").get_parameter_value().integer_value
+    )
+    self.red2_s_high = (
+      self.get_parameter("red2_s_high").get_parameter_value().integer_value
+    )
+    self.red2_v_high = (
+      self.get_parameter("red2_v_high").get_parameter_value().integer_value
+    )
+
+    self.blue1_h_low = (
+      self.get_parameter("blue1_h_low").get_parameter_value().integer_value
+    )
+    self.blue1_s_low = (
+      self.get_parameter("blue1_s_low").get_parameter_value().integer_value
+    )
+    self.blue1_v_low = (
+      self.get_parameter("blue1_v_low").get_parameter_value().integer_value
+    )
+    self.blue1_h_high = (
+      self.get_parameter("blue1_h_high").get_parameter_value().integer_value
+    )
+    self.blue1_s_high = (
+      self.get_parameter("blue1_s_high").get_parameter_value().integer_value
+    )
+    self.blue1_v_high = (
+      self.get_parameter("blue1_v_high").get_parameter_value().integer_value
+    )
+
+    self.blue2_h_low = (
+      self.get_parameter("blue1_h_low").get_parameter_value().integer_value
+    )
+    self.blue2_s_low = (
+      self.get_parameter("blue1_s_low").get_parameter_value().integer_value
+    )
+    self.blue2_v_low = (
+      self.get_parameter("blue1_v_low").get_parameter_value().integer_value
+    )
+    self.blue2_h_high = (
+      self.get_parameter("blue1_h_high").get_parameter_value().integer_value
+    )
+    self.blue2_s_high = (
+      self.get_parameter("blue1_s_high").get_parameter_value().integer_value
+    )
+    self.blue2_v_high = (
+      self.get_parameter("blue1_v_high").get_parameter_value().integer_value
+    )
+
+  def img_callback(self, img_msg: Image):
+    self.recent_rgb_image = self.bridge.imgmsg_to_cv2(img_msg, "bgr8")
+    return
+    pass
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     self.translation_map2base = np.zeros(3)
@@ -311,7 +467,7 @@ class GoalPose(Node):
     )
     target_map[1] = self.target_ball_location[1] + (
       -self.__x_intake_offset * sin(yaw) - self.__y_intake_offset * cos(yaw)
-    )      
+    )
 
     if self.__yaw_90 and self.__enable_deadZone:
       if self.is_target_in_deadZone():
@@ -336,6 +492,27 @@ class GoalPose(Node):
         else:
           target_map[1] = self.translation_map2base[1] - self.dash_distance
 
+    if self.__yaw_90 and self.__enable_incremental_dash:
+      # convert to a hsv frame
+      hsv_image = cv2.cvtColor(self.recent_rgb_image, cv2.COLOR_BGR2HSV)
+
+      # get masks from hsv frame
+      team_color_mask = self.get_mask(hsv_image, self.team_color)
+
+      # check if team color is within roi
+      # get match percentage of team color in roi
+      match_percent = self.compute_match_percent(
+        hsv_image, self.incremental_dash_roi, team_color_mask
+      )
+
+      # dash in y-direction if match percentage is above threshold
+      if match_percent > self.roi_match_fraction:
+        if self.team_color == "blue":
+          target_map[1] += self.y_increment_dash
+        else:
+          target_map[1] -= self.y_increment_dash
+      pass
+
     if self.__clamp_goalpose:
       target_map = self.clamp_target(target_map)
 
@@ -354,7 +531,7 @@ class GoalPose(Node):
         return goalpose_map
       cur = time.time()
       while (time.time() - cur) < self.continuous_goalpose_duration:
-        self.goalpose_publisher.publish(goalpose_map)      
+        self.goalpose_publisher.publish(goalpose_map)
 
     return goalpose_map
 
@@ -500,6 +677,64 @@ class GoalPose(Node):
     # dehomogenize
     point = converted_point / converted_point[3]
     return point[:3].ravel()
+
+  def get_mask(self, hsv_frame: cv2.Mat, color: str) -> cv2.Mat:
+    match color:
+      case "red":
+        red1_hsv_low = np.array([self.red1_h_low, self.red1_s_low, self.red1_v_low])
+        red1_hsv_high = np.array([self.red1_h_high, self.red1_s_high, self.red1_v_high])
+
+        red2_hsv_low = np.array([self.red2_h_low, self.red2_s_low, self.red2_v_low])
+        red2_hsv_high = np.array([self.red2_h_high, self.red2_s_high, self.red2_v_high])
+
+        red1_mask = cv2.inRange(hsv_frame, red1_hsv_low, red1_hsv_high)
+        red2_mask = cv2.inRange(hsv_frame, red2_hsv_low, red2_hsv_high)
+        mask = cv2.bitwise_or(red1_mask, red2_mask)
+
+      case "blue":
+        blue1_hsv_low = np.array([self.blue1_h_low, self.blue1_s_low, self.blue1_v_low])
+        blue1_hsv_high = np.array(
+          [self.blue1_h_high, self.blue1_s_high, self.blue1_v_high]
+        )
+
+        blue2_hsv_low = np.array([self.blue2_h_low, self.blue2_s_low, self.blue2_v_low])
+        blue2_hsv_high = np.array(
+          [self.blue2_h_high, self.blue2_s_high, self.blue2_v_high]
+        )
+
+        blue1_mask = cv2.inRange(hsv_frame, blue1_hsv_low, blue1_hsv_high)
+        mask = blue1_mask
+        # blue2_mask = cv2.inRange(hsv_frame, blue2_hsv_low, blue2_hsv_high)
+        # mask = cv2.bitwise_or(blue1_mask, blue2_mask)
+
+      case "purple":
+        purple_hsv_low = np.array([120, 50, 50])
+        purple_hsv_high = np.array([150, 255, 255])
+
+        mask = cv2.inRange(hsv_frame, purple_hsv_low, purple_hsv_high)
+
+    return mask
+
+  def compute_match_percent(self, hsv_img: cv2.Mat, roi: Tuple, mask: cv2.Mat) -> float:
+    x1, y1, x2, y2 = roi
+    roi_img = hsv_img[y1:y2, x1:x2]
+    roi_mask = mask[y1:y2, x1:x2]
+
+    roi_mask = cv2.bitwise_and(roi_img, roi_img, mask=roi_mask)
+    roi_mask = cv2.cvtColor(roi_mask, cv2.COLOR_HSV2BGR)
+    roi_mask = cv2.cvtColor(roi_mask, cv2.COLOR_BGR2GRAY)
+
+    match_percent = cv2.countNonZero(roi_mask) / (roi_mask.shape[0] * roi_mask.shape[1])
+    return match_percent
+
+  def preprocess_mask(self, mask: cv2.Mat) -> cv2.Mat:
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    processed_mask = cv2.dilate(mask, kernel, iterations=2)
+    return processed_mask
+
+  def combine_masks(self, mask1: cv2.Mat, mask2: cv2.Mat) -> cv2.Mat:
+    combined_mask = cv2.bitwise_or(mask1, mask2)
+    return combined_mask
 
   def set_goalpose_map(self, goalpose_map):
     self.goalpose_map = goalpose_map

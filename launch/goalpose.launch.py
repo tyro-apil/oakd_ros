@@ -42,6 +42,10 @@ def generate_launch_description():
     get_package_share_directory("oakd"), "config", "goalpose_config.yaml"
   )
 
+  hsv_config = os.path.join(
+    get_package_share_directory("silo"), "config", "check_top.yaml"
+  )
+
   common_config = os.path.join(
     get_package_share_directory("robot"), "config", "common.yaml"
   )
@@ -58,7 +62,7 @@ def generate_launch_description():
     namespace=namespace,
     executable="goalpose_node",
     name="goalpose_node",
-    parameters=[goalpose_config, common_config, base_polygon_config],
+    parameters=[goalpose_config, common_config, base_polygon_config, hsv_config],
     remappings=[
       ("/odometry/filtered", pose_topic),
       ("/ball_tracker", state_n_goalpose_topic),

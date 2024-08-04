@@ -42,3 +42,11 @@
     ## Continuos goalpose
     enable_continuous_goalpose: False
     continuous_goalpose_duration: 0.100      # In seconds
+
+    ## Dash forward if ball present in certain region of image
+    enable_incremental_dash: True
+    incremental_dash_roi: [0,0,0,0]
+    roi_match_fraction: 0.33
+    # Increments w.r.t. map
+    x_increment_dash: 0.10
+    y_increment_dash: 0.20
