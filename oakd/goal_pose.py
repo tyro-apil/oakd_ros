@@ -6,6 +6,7 @@ import time
 from collections import namedtuple
 from math import atan2, cos, pi, sin, sqrt
 from typing import List, Tuple
+import copy
 
 import cv2
 import numpy as np
@@ -28,6 +29,7 @@ from std_msgs.msg import Bool
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from collections import deque
 
 
 class GoalPose(Node):
@@ -75,6 +77,10 @@ class GoalPose(Node):
     )
     self.bridge = CvBridge()
     self.recent_rgb_image = None
+    self.target_locked = False
+    self.towards_target = False
+    self.target_location_queue = deque(maxlen=self.goalpose_consistency_counter)
+    self.averaged_target_location = None
 
     self.translation_map2base = None
     self.quaternion_map2base = None
@@ -123,7 +129,7 @@ class GoalPose(Node):
     self.declare_parameter("backward_distance", 0.30)
 
     self.declare_parameter("enable_continuous_goalpose", False)
-    self.declare_parameter("continouse_goalpose_duration", 0.100)
+    self.declare_parameter("continuous_goalpose_duration", 0.100)
 
     self.declare_parameter("enable_incremental_dash", False)
     self.declare_parameter("incremental_dash_roi", [0] * 4)
@@ -158,6 +164,10 @@ class GoalPose(Node):
     self.declare_parameter("blue2_h_high", 115)
     self.declare_parameter("blue2_s_high", 230)
     self.declare_parameter("blue2_v_high", 230)
+
+    self.declare_parameter("enable_goalpose_lock", False)
+    self.declare_parameter("goalpose_consistency_radius", 0.0)
+    self.declare_parameter("goalpose_consistency_counter", )
 
   def read_params(self):
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
@@ -354,6 +364,20 @@ class GoalPose(Node):
       self.get_parameter("blue1_v_high").get_parameter_value().integer_value
     )
 
+    self.__enable_goalpose_lock = (
+      self.get_parameter("enable_goalpose_lock").get_parameter_value().bool_value
+    )
+    self.goalpose_consistency_radius = (
+      self.get_parameter("goalpose_consistency_radius")
+      .get_parameter_value()
+      .double_value
+    )
+    self.goalpose_consistency_counter = (
+      self.get_parameter("goalpose_consistency_counter")
+      .get_parameter_value()
+      .integer_value
+    )
+
   def img_callback(self, img_msg: Image):
     self.recent_rgb_image = self.bridge.imgmsg_to_cv2(img_msg, "bgr8")
     return
@@ -383,7 +407,7 @@ class GoalPose(Node):
 
     if self.translation_map2base is None:
       return
-
+    
     team_colored_balls = self.filter_balls(SpatialBalls_msg.spatial_balls)
     # self.get_logger().info(
     #   f"detected: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
@@ -404,17 +428,17 @@ class GoalPose(Node):
           self.target_ball_location = (ball.position.x, ball.position.y)
           self.set_target_ball(self.tracked_id, self.target_ball_location)
 
-          if self.__lock_far_target:
-            base2target_vector = (
-              self.target_ball_location[0] - self.translation_map2base[0],
-              self.target_ball_location[1] - self.translation_map2base[1],
-            )
-            base2target_distance = sqrt(
-              base2target_vector[0] ** 2 + base2target_vector[1] ** 2
-            )
-            if base2target_distance > 1.0:
-              return
-            break
+          # if self.__lock_far_target:
+          #   base2target_vector = (
+          #     self.target_ball_location[0] - self.translation_map2base[0],
+          #     self.target_ball_location[1] - self.translation_map2base[1],
+          #   )
+          #   base2target_distance = sqrt(
+          #     base2target_vector[0] ** 2 + base2target_vector[1] ** 2
+          #   )
+          #   if base2target_distance > 1.0:
+          #     return
+          #   break
 
     else:
       self.tracked_id, self.target_ball_location = self.get_closest_ball(
@@ -422,7 +446,11 @@ class GoalPose(Node):
       )
       self.set_target_ball(self.tracked_id, self.target_ball_location)
 
-    goalPose_map = self.get_goalpose_map()
+    self.target_location_queue.append(self.target_ball_location)
+
+    if self.__enable_goalpose_lock:
+      return
+    goalPose_map = self.get_goalpose_map(self.target_ball_location)
 
     self.set_goalpose_map(goalPose_map)
     self.set_ball_tracking_state(True)
@@ -453,24 +481,24 @@ class GoalPose(Node):
     )
     return sqrt(base2ball_vector[0] ** 2 + base2ball_vector[1] ** 2)
 
-  def get_goalpose_map(self):
+  def get_goalpose_map(self, target_ball_location):
     goalpose_map = PoseStamped()
     goalpose_map.header.stamp = self.__msg_stamp
     goalpose_map.header.frame_id = "map"
 
     yaw = round(
-      self.get_goalPose_yaw(self.target_ball_location), self.__decimal_accuracy
+      self.get_goalPose_yaw(target_ball_location), self.__decimal_accuracy
     )
     target_map = [0.0] * 3
-    target_map[0] = self.target_ball_location[0] + (
+    target_map[0] = target_ball_location[0] + (
       -self.__x_intake_offset * cos(yaw) + self.__y_intake_offset * sin(yaw)
     )
-    target_map[1] = self.target_ball_location[1] + (
+    target_map[1] = target_ball_location[1] + (
       -self.__x_intake_offset * sin(yaw) - self.__y_intake_offset * cos(yaw)
     )
 
     if self.__yaw_90 and self.__enable_deadZone:
-      if self.is_target_in_deadZone():
+      if self.is_target_in_deadZone(target_ball_location):
         target_map[0] = self.translation_map2base[0]
         if self.team_color == "blue":
           target_map[1] = self.translation_map2base[1] - self.__backward_distance
@@ -478,15 +506,15 @@ class GoalPose(Node):
           target_map[1] = self.translation_map2base[1] + self.__backward_distance
 
     if self.__yaw_90 and self.__enable_align_zone:
-      if self.is_target_in_alignZone():
+      if self.is_target_in_alignZone(target_ball_location):
         if self.team_color == "blue":
           target_map[0] = self.translation_map2base[0] + self.__y_intake_offset
         else:
-          target_map[0] = self.target_ball_location[0] - self.__y_intake_offset
+          target_map[0] = target_ball_location[0] - self.__y_intake_offset
         target_map[1] = self.translation_map2base[1]
 
     if self.__yaw_90 and self.__enable_dash_at_end:
-      if self.is_target_in_dashZone():
+      if self.is_target_in_dashZone(target_ball_location):
         if self.team_color == "blue":
           target_map[1] = self.translation_map2base[1] + self.dash_distance
         else:
@@ -503,7 +531,7 @@ class GoalPose(Node):
         # check if team color is within roi
         # get match percentage of team color in roi
         match_percent = self.compute_match_percent(
-          hsv_image, self.incremental_dash_roi, team_color_mask
+          hsv_image, tuple(self.incremental_dash_roi), team_color_mask
         )
 
         # dash in y-direction if match percentage is above threshold
@@ -600,24 +628,24 @@ class GoalPose(Node):
 
     return translation, quaternion
 
-  def is_target_in_dashZone(self):
+  def is_target_in_dashZone(self, target_ball_location):
     if (
-      abs(self.target_ball_location[1] - self.translation_map2base[1]) <= self.dash_zone
+      abs(target_ball_location[1] - self.translation_map2base[1]) <= self.dash_zone
     ):
       return True
     return False
 
-  def is_target_in_alignZone(self):
+  def is_target_in_alignZone(self, target_ball_location):
     if (
-      abs(self.target_ball_location[1] - self.translation_map2base[1])
+      abs(target_ball_location[1] - self.translation_map2base[1])
       <= self.base_fblr[0] + self.__align_distance
     ) and abs(
-      self.target_ball_location[0] - self.translation_map2base[0]
+      target_ball_location[0] - self.translation_map2base[0]
     ) >= self.__x_align_tolerance:
       return True
     return False
 
-  def is_target_in_deadZone(self):
+  def is_target_in_deadZone(self, target_ball_location):
     if self.team_color == "blue":
       top_left = (
         self.translation_map2base[0] - (self.base_fblr[2] - self.__increase_deadZone_x),
@@ -628,11 +656,11 @@ class GoalPose(Node):
         self.translation_map2base[1] + (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       if (
-        self.target_ball_location[0] < top_left[0]
-        and self.target_ball_location[1] < top_left[1]
+        target_ball_location[0] < top_left[0]
+        and target_ball_location[1] < top_left[1]
       ) or (
-        self.target_ball_location[0] > top_right[0]
-        and self.target_ball_location[1] < top_right[1]
+        target_ball_location[0] > top_right[0]
+        and target_ball_location[1] < top_right[1]
       ):
         return True
       return False
@@ -646,11 +674,11 @@ class GoalPose(Node):
         self.translation_map2base[1] - (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       if (
-        self.target_ball_location[0] > top_left[0]
-        and self.target_ball_location[1] > top_left[1]
+        target_ball_location[0] > top_left[0]
+        and target_ball_location[1] > top_left[1]
       ) or (
-        self.target_ball_location[0] < top_right[0]
-        and self.target_ball_location[1] > top_right[1]
+        target_ball_location[0] < top_right[0]
+        and target_ball_location[1] > top_right[1]
       ):
         return True
       return False
@@ -766,10 +794,81 @@ class GoalPose(Node):
     return
 
   def publish_state_n_goalpose(self):
-    self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
-    self.goalpose_publisher.publish(self.goalpose_map)
-    self.target_publisher.publish(self.target_ball)
-    return
+    if self.__enable_goalpose_lock:
+
+      if self.target_locked:
+        self.target_location_queue.clear()
+        self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
+        self.goalpose_publisher.publish(self.goalpose_map)
+        self.target_publisher.publish(self.target_ball)
+
+        self.check_if_inside_goalpose_radius()
+      else:
+        self.set_ball_tracking_state(False)
+        self.update_state_msg()
+        self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
+        self.goalpose_publisher.publish(self.goalpose_map)
+
+        copy_target_queue = self.target_location_queue.copy()
+        self.check_target_consistency(copy_target_queue)
+        self.averaged_target_location = self.get_average_target_location(copy_target_queue)
+        if self.consistent_target:
+          goalPose_map = self.get_goalpose_map(self.averaged_target_location)
+          self.set_goalpose_map(goalPose_map)
+          self.set_ball_tracking_state(True)
+          self.update_state_msg()
+
+    else:
+      self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
+      self.goalpose_publisher.publish(self.goalpose_map)
+      self.target_publisher.publish(self.target_ball)
+      return
+  
+  def check_if_inside_goalpose_radius(self):
+    base2goal_vector = (
+      self.goalpose_map.pose.position.x - self.translation_map2base[0],
+      self.goalpose_map.pose.position.y - self.translation_map2base[1],
+    )
+    if (
+      (base2goal_vector[0] <= self.goalpose_consistency_radius) 
+      and (base2goal_vector[1] <= self.goalpose_consistency_radius)
+    ):
+      self.target_locked = False
+    else:
+      self.target_locked = True
+
+  def check_target_consistency(self, queue):
+    if len(queue) != self.goalpose_consistency_counter:
+      return
+    # Convert deque to a list for easy indexing
+    data_list = list(queue)
+    
+    # Check x differences
+    for i in range(1, len(data_list)):
+        x1, _ = data_list[i-1]
+        x2, _ = data_list[i]
+        if abs(x2 - x1) > self.goalpose_consistency_radius:
+            return False
+    
+    # Check y differences
+    for i in range(1, len(data_list)):
+        _, y1 = data_list[i-1]
+        _, y2 = data_list[i]
+        if abs(y2 - y1) > self.goalpose_consistency_radius:
+            return False
+    
+    return True
+  
+  def get_average_target_location(self, queue):
+    x_sum = 0
+    y_sum = 0
+    for x, y in queue:
+        x_sum += x
+        y_sum += y
+    
+    x_avg = x_sum / len(queue)
+    y_avg = y_sum / len(queue)
+    return [x_avg, y_avg]
 
   def timer_callback(self) -> None:
     self.publish_state_n_goalpose()

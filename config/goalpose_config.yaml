@@ -5,7 +5,7 @@
     clamp_goalpose: True
     yaw_for_corners: False
     yaw_90: True
-    lock_far_target: True
+    lock_far_target: False
 
     # Offset from base_link to intake
     x_intake_offset: 0.35
@@ -26,7 +26,7 @@
     ## Give a farther goalpose so that ball gets inside intake even if it is not detected
     enable_dash_at_end: True
     dash_zone: 0.70
-    dash_distance: 0.30
+    dash_distance: 0.40
 
     ## Buffer distance for aligning intake (if always yaw = 90 degrees)
     enable_align_zone: True
@@ -44,10 +44,14 @@
     continuous_goalpose_duration: 0.100      # In seconds
 
     ## Dash forward if ball present in certain region of image
-    enable_incremental_dash: True
+    enable_incremental_dash: False
     # XYXY ROI for ball detection
     incremental_dash_roi: [420, 410, 910, 550]
     roi_match_fraction: 0.33
     # Increments w.r.t. map
     x_increment_dash: 0.10
     y_increment_dash: 0.20
+
+    enable_goalpose_lock: True
+    goalpose_consistency_counter: 5
+    goalpose_consistency_radius: 0.50
