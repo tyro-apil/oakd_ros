@@ -48,6 +48,16 @@ def generate_launch_description():
     parameters=[capture_config],
   )
 
+  broadcast_node_cmd = Node(
+    package="oakd",
+    namespace=namespace,
+    executable="broadcast_node",
+    name="broadcast_node",
+    remappings=[
+      ("dbg_image", debug_image_topic),
+    ],
+  )
+
   ld = LaunchDescription()
 
   ld.add_action(namespace_cmd)
@@ -55,4 +65,5 @@ def generate_launch_description():
   ld.add_action(debug_image_topic_cmd)
 
   ld.add_action(capture_node_cmd)
+  ld.add_action(broadcast_node_cmd)
   return ld

@@ -43,6 +43,7 @@ setup(
       "base2cam_optical_tf = tfs.base2cam_optical:main",
       "target_marker_node = oakd.target_marker:main",
       "capture_node = oakd.capture_dbg:main",
+      "broadcast_node = oakd.broadcast_debug:main",
     ],
   },
 )
