@@ -52,6 +52,6 @@
     x_increment_dash: 0.10
     y_increment_dash: 0.20
 
-    enable_goalpose_lock: True
+    enable_goalpose_lock: False
     goalpose_consistency_counter: 5
     goalpose_consistency_radius: 0.50
