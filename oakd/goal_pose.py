@@ -446,9 +446,8 @@ class GoalPose(Node):
       )
       self.set_target_ball(self.tracked_id, self.target_ball_location)
 
-    self.target_location_queue.append(self.target_ball_location)
-
     if self.__enable_goalpose_lock:
+      self.target_location_queue.append(self.target_ball_location)
       return
     goalPose_map = self.get_goalpose_map(self.target_ball_location)
 
