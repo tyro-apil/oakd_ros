@@ -18,6 +18,11 @@ def generate_launch_description():
     "namespace", default_value="", description="Name of the namespace"
   )
 
+  input_image_topic = LaunchConfiguration("input_image_topic")
+  input_image_topic_cmd = DeclareLaunchArgument(
+    "input_image_topic", default_value="image_raw", description="Name of the namespace"
+  )
+
   pose_topic = LaunchConfiguration("pose_topic")
   pose_topic_cmd = DeclareLaunchArgument(
     "pose_topic",
@@ -67,6 +72,7 @@ def generate_launch_description():
       ("/odometry/filtered", pose_topic),
       ("/ball_tracker", state_n_goalpose_topic),
       ("/ball_pose_topic", ball_goalpose_topic),
+      ("image_raw", input_image_topic),
     ],
   )
 
@@ -80,6 +86,7 @@ def generate_launch_description():
   ld = LaunchDescription()
 
   ld.add_action(namespace_cmd)
+  ld.add_action(input_image_topic_cmd)
   ld.add_action(ball_goalpose_topic_cmd)
   ld.add_action(state_n_goalpose_topic_cmd)
   ld.add_action(pose_topic_cmd)

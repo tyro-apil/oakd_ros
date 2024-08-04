@@ -111,6 +111,7 @@ def generate_launch_description():
       "namespace": namespace,
       "state_n_goalpose_topic": state_n_goalpose_topic,
       "ball_goalpose_topic": ball_goalpose_topic,
+      "input_image_topic": namespace + "/" + input_image_topic,
     }.items(),
   )
 
