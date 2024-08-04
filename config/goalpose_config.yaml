@@ -25,7 +25,7 @@
 
     ## Give a farther goalpose so that ball gets inside intake even if it is not detected
     enable_dash_at_end: True
-    dash_zone: 0.60
+    dash_zone: 0.70
     dash_distance: 0.30
 
     ## Buffer distance for aligning intake (if always yaw = 90 degrees)
@@ -39,3 +39,6 @@
     increase_deadZone_x: 0.05
     backward_distance: 0.30
 
+    ## Continuos goalpose
+    enable_continuous_goalpose: False
+    continuous_goalpose_duration: 0.100      # In seconds

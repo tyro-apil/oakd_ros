@@ -5,6 +5,7 @@ Publishes goalPose message w.r.t. map frame
 from collections import namedtuple
 from math import atan2, cos, pi, sin, sqrt
 from typing import List
+import time
 
 import numpy as np
 import rclpy
@@ -101,6 +102,9 @@ class GoalPose(Node):
     self.declare_parameter("increase_deadZone_x", 0.2)
     self.declare_parameter("backward_distance", 0.30)
 
+    self.declare_parameter("enable_continuous_goalpose", False)
+    self.declare_parameter("continouse_goalpose_duration", 0.100)
+    
   def read_params(self):
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
     # Base polygon w.r.t. base_link -> front, back, left, right
@@ -192,7 +196,12 @@ class GoalPose(Node):
       self.get_parameter("backward_distance").get_parameter_value().double_value
     )
 
-    # self.dash_distance = self.dash_zone - self.base_fblr[0]
+    self.__enable_continuous_goalpose = (
+      self.get_parameter("enable_continuous_goalpose").get_parameter_value().bool_value
+    )
+    self.continuous_goalpose_duration = (
+      self.get_parameter("continuous_goalpose_duration").get_parameter_value().double_value
+    )
 
   def baselink_pose_callback(self, pose_msg: Odometry):
     self.translation_map2base = np.zeros(3)
@@ -339,6 +348,13 @@ class GoalPose(Node):
     goalpose_map.pose.orientation.y = round(q_goalpose[1], self.__decimal_accuracy)
     goalpose_map.pose.orientation.z = round(q_goalpose[2], self.__decimal_accuracy)
     goalpose_map.pose.orientation.w = round(q_goalpose[3], self.__decimal_accuracy)
+
+    if self.__enable_continuous_goalpose:
+      if not self.is_target_in_dashZone():
+        return goalpose_map
+      cur = time.time()
+      while (time.time() - cur) < self.continuous_goalpose_duration:
+        self.goalpose_publisher.publish(goalpose_map)      
 
     return goalpose_map
 
