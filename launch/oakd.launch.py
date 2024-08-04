@@ -42,7 +42,7 @@ def generate_launch_description():
   state_n_goalpose_topic = "/ball_tracker"
   ball_goalpose_topic = "/ball_pose_topic"
   device = "cuda:0"
-  iou = "0.7"
+  iou = "0.65"
 
   cam_driver = IncludeLaunchDescription(
     PythonLaunchDescriptionSource(
