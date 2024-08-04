@@ -2,11 +2,11 @@
 Publishes goalPose message w.r.t. map frame
 """
 
+import copy
 import time
-from collections import namedtuple
+from collections import deque, namedtuple
 from math import atan2, cos, pi, sin, sqrt
 from typing import List, Tuple
-import copy
 
 import cv2
 import numpy as np
@@ -29,7 +29,6 @@ from std_msgs.msg import Bool
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from collections import deque
 
 
 class GoalPose(Node):
@@ -82,6 +81,8 @@ class GoalPose(Node):
     self.target_location_queue = deque(maxlen=self.goalpose_consistency_counter)
     self.averaged_target_location = None
 
+    self.far_target_locked = False
+
     self.translation_map2base = None
     self.quaternion_map2base = None
     self.target_ball = SpatialBall()
@@ -105,7 +106,9 @@ class GoalPose(Node):
     self.declare_parameter("clamp_goalpose", True)
     self.declare_parameter("yaw_for_corners", True)
     self.declare_parameter("yaw_90", False)
+
     self.declare_parameter("lock_far_target", False)
+    self.declare_parameter("far_threshold", 1.0)
 
     self.declare_parameter("x_intake_offset", 0.60)
     self.declare_parameter("y_intake_offset", 0.15)
@@ -167,7 +170,9 @@ class GoalPose(Node):
 
     self.declare_parameter("enable_goalpose_lock", False)
     self.declare_parameter("goalpose_consistency_radius", 0.0)
-    self.declare_parameter("goalpose_consistency_counter", )
+    self.declare_parameter(
+      "goalpose_consistency_counter", 5
+    )
 
   def read_params(self):
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
@@ -225,9 +230,14 @@ class GoalPose(Node):
       self.get_parameter("yaw_for_corners").get_parameter_value().bool_value
     )
     self.__yaw_90 = self.get_parameter("yaw_90").get_parameter_value().bool_value
+
     self.__lock_far_target = (
       self.get_parameter("lock_far_target").get_parameter_value().bool_value
     )
+    self.far_threshold = (
+      self.get_parameter("far_threshold").get_parameter_value().double_value
+    )
+    self.last_far_target_time = time.time()
 
     self.__enable_dash_at_end = (
       self.get_parameter("enable_dash_at_end").get_parameter_value().bool_value
@@ -407,7 +417,14 @@ class GoalPose(Node):
 
     if self.translation_map2base is None:
       return
-    
+
+    if self.__lock_far_target:
+      if self.far_target_locked:
+        if self.check_is_target_location_far(self.target_ball_location):
+          return
+      # else:
+      #   self.far_target_locked = False
+
     team_colored_balls = self.filter_balls(SpatialBalls_msg.spatial_balls)
     # self.get_logger().info(
     #   f"detected: {len(SpatialBalls_msg.spatial_balls)} | {self.team_color}: {len(team_colored_balls)}"
@@ -445,6 +462,13 @@ class GoalPose(Node):
         team_colored_balls
       )
       self.set_target_ball(self.tracked_id, self.target_ball_location)
+
+    if self.__lock_far_target:
+      is_too_far = self.check_is_target_location_far(self.target_ball_location)
+      if is_too_far:
+        self.far_target_locked = True
+      else:
+        self.far_target_locked = False
 
     if self.__enable_goalpose_lock:
       self.target_location_queue.append(self.target_ball_location)
@@ -485,9 +509,7 @@ class GoalPose(Node):
     goalpose_map.header.stamp = self.__msg_stamp
     goalpose_map.header.frame_id = "map"
 
-    yaw = round(
-      self.get_goalPose_yaw(target_ball_location), self.__decimal_accuracy
-    )
+    yaw = round(self.get_goalPose_yaw(target_ball_location), self.__decimal_accuracy)
     target_map = [0.0] * 3
     target_map[0] = target_ball_location[0] + (
       -self.__x_intake_offset * cos(yaw) + self.__y_intake_offset * sin(yaw)
@@ -628,9 +650,7 @@ class GoalPose(Node):
     return translation, quaternion
 
   def is_target_in_dashZone(self, target_ball_location):
-    if (
-      abs(target_ball_location[1] - self.translation_map2base[1]) <= self.dash_zone
-    ):
+    if abs(target_ball_location[1] - self.translation_map2base[1]) <= self.dash_zone:
       return True
     return False
 
@@ -655,8 +675,7 @@ class GoalPose(Node):
         self.translation_map2base[1] + (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       if (
-        target_ball_location[0] < top_left[0]
-        and target_ball_location[1] < top_left[1]
+        target_ball_location[0] < top_left[0] and target_ball_location[1] < top_left[1]
       ) or (
         target_ball_location[0] > top_right[0]
         and target_ball_location[1] < top_right[1]
@@ -673,8 +692,7 @@ class GoalPose(Node):
         self.translation_map2base[1] - (self.base_fblr[0] + self.__deadZone_tolerance),
       )
       if (
-        target_ball_location[0] > top_left[0]
-        and target_ball_location[1] > top_left[1]
+        target_ball_location[0] > top_left[0] and target_ball_location[1] > top_left[1]
       ) or (
         target_ball_location[0] < top_right[0]
         and target_ball_location[1] > top_right[1]
@@ -794,7 +812,6 @@ class GoalPose(Node):
 
   def publish_state_n_goalpose(self):
     if self.__enable_goalpose_lock:
-
       if self.target_locked:
         self.target_location_queue.clear()
         self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
@@ -810,7 +827,9 @@ class GoalPose(Node):
 
         copy_target_queue = self.target_location_queue.copy()
         self.check_target_consistency(copy_target_queue)
-        self.averaged_target_location = self.get_average_target_location(copy_target_queue)
+        self.averaged_target_location = self.get_average_target_location(
+          copy_target_queue
+        )
         if self.consistent_target:
           goalPose_map = self.get_goalpose_map(self.averaged_target_location)
           self.set_goalpose_map(goalPose_map)
@@ -819,18 +838,18 @@ class GoalPose(Node):
 
     else:
       self.state_n_goalpose_publisher.publish(self.state_n_goalpose)
-      self.goalpose_publisher.publish(self.goalpose_map)
-      self.target_publisher.publish(self.target_ball)
+      if self.is_ball_tracked:
+        self.goalpose_publisher.publish(self.goalpose_map)
+        self.target_publisher.publish(self.target_ball)
       return
-  
+
   def check_if_inside_goalpose_radius(self):
     base2goal_vector = (
       self.goalpose_map.pose.position.x - self.translation_map2base[0],
       self.goalpose_map.pose.position.y - self.translation_map2base[1],
     )
-    if (
-      (base2goal_vector[0] <= self.goalpose_consistency_radius) 
-      and (base2goal_vector[1] <= self.goalpose_consistency_radius)
+    if (base2goal_vector[0] <= self.goalpose_consistency_radius) and (
+      base2goal_vector[1] <= self.goalpose_consistency_radius
     ):
       self.target_locked = False
     else:
@@ -841,34 +860,44 @@ class GoalPose(Node):
       return
     # Convert deque to a list for easy indexing
     data_list = list(queue)
-    
+
     # Check x differences
     for i in range(1, len(data_list)):
-        x1, _ = data_list[i-1]
-        x2, _ = data_list[i]
-        if abs(x2 - x1) > self.goalpose_consistency_radius:
-            return False
-    
+      x1, _ = data_list[i - 1]
+      x2, _ = data_list[i]
+      if abs(x2 - x1) > self.goalpose_consistency_radius:
+        return False
+
     # Check y differences
     for i in range(1, len(data_list)):
-        _, y1 = data_list[i-1]
-        _, y2 = data_list[i]
-        if abs(y2 - y1) > self.goalpose_consistency_radius:
-            return False
-    
+      _, y1 = data_list[i - 1]
+      _, y2 = data_list[i]
+      if abs(y2 - y1) > self.goalpose_consistency_radius:
+        return False
+
     return True
-  
+
   def get_average_target_location(self, queue):
     x_sum = 0
     y_sum = 0
     for x, y in queue:
-        x_sum += x
-        y_sum += y
-    
+      x_sum += x
+      y_sum += y
+
     x_avg = x_sum / len(queue)
     y_avg = y_sum / len(queue)
     return [x_avg, y_avg]
 
+  def check_is_target_location_far(self, target_ball_location):
+    base2target_vector = (
+      target_ball_location[0] - self.translation_map2base[0],
+      target_ball_location[1] - self.translation_map2base[1],
+    )
+    base2target_distance = sqrt(base2target_vector[0] ** 2 + base2target_vector[1] ** 2)
+    if base2target_distance > self.far_threshold:
+      return True
+    return False
+  
   def timer_callback(self) -> None:
     self.publish_state_n_goalpose()
 

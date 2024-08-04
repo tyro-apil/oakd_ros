@@ -5,7 +5,9 @@
     clamp_goalpose: True
     yaw_for_corners: False
     yaw_90: True
-    lock_far_target: False
+
+    lock_far_target: True
+    far_threshold: 1.00  # In meters
 
     # Offset from base_link to intake
     x_intake_offset: 0.35
