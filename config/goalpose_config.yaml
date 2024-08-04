@@ -44,8 +44,9 @@
     continuous_goalpose_duration: 0.100      # In seconds
 
     ## Dash forward if ball present in certain region of image
-    enable_incremental_dash: True
-    incremental_dash_roi: [0,0,0,0]
+    enable_incremental_dash: False
+    # XYXY ROI for ball detection
+    incremental_dash_roi: [420, 410, 910, 550]
     roi_match_fraction: 0.33
     # Increments w.r.t. map
     x_increment_dash: 0.10
