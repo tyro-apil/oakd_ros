@@ -83,6 +83,9 @@ class GoalPose(Node):
 
     self.far_target_locked = False
 
+    self.dash_started = False
+    self.dash_start_time = time.time()
+
     self.translation_map2base = None
     self.quaternion_map2base = None
     self.target_ball = SpatialBall()
@@ -121,6 +124,9 @@ class GoalPose(Node):
     self.declare_parameter("enable_dash_at_end", True)
     self.declare_parameter("dash_zone", 0.60)
     self.declare_parameter("dash_distance", 0.20)
+    self.declare_parameter("dash_duration", 0.100)
+    self.declare_parameter("enable_incremental_dash_at_end", False)
+
 
     self.declare_parameter("enable_align_zone", False)
     self.declare_parameter("align_distance", 0.20)
@@ -245,6 +251,12 @@ class GoalPose(Node):
     self.dash_zone = self.get_parameter("dash_zone").get_parameter_value().double_value
     self.dash_distance = (
       self.get_parameter("dash_distance").get_parameter_value().double_value
+    )
+    self.dash_duration = (
+      self.get_parameter("dash_duration").get_parameter_value().double_value
+    )
+    self.__enable_incremental_dash_at_end = (
+      self.get_parameter("enable_incremental_dash_at_end").get_parameter_value().bool_value
     )
 
     self.__enable_align_zone = (
@@ -417,6 +429,25 @@ class GoalPose(Node):
 
     if self.translation_map2base is None:
       return
+    
+    if self.__enable_dash_at_end:
+      if self.dash_started:
+        if (time.time() - self.dash_start_time) < self.dash_duration:
+
+          if self.__enable_incremental_dash_at_end:
+            current_goalpose = self.goalpose_map
+            
+            if self.team_color == "blue":
+              current_goalpose.pose.position.y = self.translation_map2base[1] + self.y_increment_dash
+            else:
+              current_goalpose.pose.position.y = self.translation_map2base[1] - self.y_increment_dash
+
+            self.set_goalpose_map(current_goalpose)
+            self.set_ball_tracking_state(True)
+            self.update_state_msg()
+
+          return
+        self.dash_started = False
 
     if self.__lock_far_target:
       if self.far_target_locked:
@@ -536,10 +567,14 @@ class GoalPose(Node):
 
     if self.__yaw_90 and self.__enable_dash_at_end:
       if self.is_target_in_dashZone(target_ball_location):
+        self.dash_started = True
+        self.dash_start_time = time.time()
         if self.team_color == "blue":
           target_map[1] = self.translation_map2base[1] + self.dash_distance
         else:
           target_map[1] = self.translation_map2base[1] - self.dash_distance
+      # else:
+      #   self.dash_started = False
 
     if self.__yaw_90 and self.__enable_incremental_dash:
       if self.recent_rgb_image is not None:
