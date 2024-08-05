@@ -86,6 +86,10 @@ class GoalPose(Node):
     self.dash_started = False
     self.dash_start_time = time.time()
 
+    self.ball_last_seen = time.time()
+    self.last_base2target_vector = None
+    self.last_far_target_time = None
+
     self.translation_map2base = None
     self.quaternion_map2base = None
     self.target_ball = SpatialBall()
@@ -126,7 +130,6 @@ class GoalPose(Node):
     self.declare_parameter("dash_distance", 0.20)
     self.declare_parameter("dash_duration", 0.100)
     self.declare_parameter("enable_incremental_dash_at_end", False)
-
 
     self.declare_parameter("enable_align_zone", False)
     self.declare_parameter("align_distance", 0.20)
@@ -176,9 +179,7 @@ class GoalPose(Node):
 
     self.declare_parameter("enable_goalpose_lock", False)
     self.declare_parameter("goalpose_consistency_radius", 0.0)
-    self.declare_parameter(
-      "goalpose_consistency_counter", 5
-    )
+    self.declare_parameter("goalpose_consistency_counter", 5)
 
   def read_params(self):
     XY_limits = namedtuple("XY_limits", "xmin ymin xmax ymax")
@@ -243,7 +244,7 @@ class GoalPose(Node):
     self.far_threshold = (
       self.get_parameter("far_threshold").get_parameter_value().double_value
     )
-    self.last_far_target_time = time.time()
+    
 
     self.__enable_dash_at_end = (
       self.get_parameter("enable_dash_at_end").get_parameter_value().bool_value
@@ -256,7 +257,9 @@ class GoalPose(Node):
       self.get_parameter("dash_duration").get_parameter_value().double_value
     )
     self.__enable_incremental_dash_at_end = (
-      self.get_parameter("enable_incremental_dash_at_end").get_parameter_value().bool_value
+      self.get_parameter("enable_incremental_dash_at_end")
+      .get_parameter_value()
+      .bool_value
     )
 
     self.__enable_align_zone = (
@@ -430,13 +433,16 @@ class GoalPose(Node):
     if self.translation_map2base is None:
       return
     
-    if self.__enable_dash_at_end:
+    if time.time() - self.ball_last_seen > 5:
+      self.set_ball_tracking_state(False)
+      self.update_state_msg()
+
+    if (self.__enable_dash_at_end):
       if self.dash_started:
         if (time.time() - self.dash_start_time) < self.dash_duration:
-
           if self.__enable_incremental_dash_at_end:
             current_goalpose = self.goalpose_map
-            
+
             if self.team_color == "blue":
               current_goalpose.pose.position.y = self.translation_map2base[1] + self.y_increment_dash
             else:
@@ -452,7 +458,12 @@ class GoalPose(Node):
     if self.__lock_far_target:
       if self.far_target_locked:
         if self.check_is_target_location_far(self.target_ball_location):
-          return
+          if (time.time() - self.last_far_target_time) < 2:
+            return
+          else:
+            if not self.check_is_going_towards_locked_target():
+              self.far_target_locked = False
+              
       # else:
       #   self.far_target_locked = False
 
@@ -493,11 +504,18 @@ class GoalPose(Node):
         team_colored_balls
       )
       self.set_target_ball(self.tracked_id, self.target_ball_location)
+    
+    self.ball_last_seen = time.time()
 
     if self.__lock_far_target:
       is_too_far = self.check_is_target_location_far(self.target_ball_location)
       if is_too_far:
         self.far_target_locked = True
+        self.last_base2target_vector = (
+          self.target_ball_location[0] - self.translation_map2base[0],
+          self.target_ball_location[1] - self.translation_map2base[1],
+        )
+        self.last_far_target_time = time.time()
       else:
         self.far_target_locked = False
 
@@ -505,6 +523,7 @@ class GoalPose(Node):
       self.target_location_queue.append(self.target_ball_location)
       return
     goalPose_map = self.get_goalpose_map(self.target_ball_location)
+    self.get_logger().info(f"GoalPose: {goalPose_map}")
 
     self.set_goalpose_map(goalPose_map)
     self.set_ball_tracking_state(True)
@@ -933,6 +952,20 @@ class GoalPose(Node):
       return True
     return False
   
+  def check_is_going_towards_locked_target(self):
+    base2target_vector = (
+      self.target_ball_location[0] - self.translation_map2base[0],
+      self.target_ball_location[1] - self.translation_map2base[1],
+    )
+    base2target_distance = sqrt(base2target_vector[0] ** 2 + base2target_vector[1] ** 2)
+
+    last_base2target_vector_distance = sqrt(
+      self.last_base2target_vector[0] ** 2 + self.last_base2target_vector[1] ** 2
+    )
+    if base2target_distance < last_base2target_vector_distance:
+      return True
+    return False
+
   def timer_callback(self) -> None:
     self.publish_state_n_goalpose()
 
