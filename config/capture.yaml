@@ -1,5 +1,5 @@
 /**:
   ros__parameters:
     enable_capture: True
-    capture_interval: 2.0
+    capture_interval: 1.0
     sync: False

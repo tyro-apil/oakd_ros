@@ -26,8 +26,8 @@ class CaptureNode(Node):
     self.declare_parameter("capture_interval", 1.0)
     self.declare_parameter("sync", True)
 
-    self.raw_images_path = "/home/apil/work/robocon2024/cv/live_capture/oakd/raw"
-    self.debug_images_path = "/home/apil/work/robocon2024/cv/live_capture/oakd/debug"
+    self.raw_images_path = "/home/apil/live_data/pit/raw"
+    self.debug_images_path = "/home/apil/live_data/pit/debug"
 
     image_qos_profile = QoSProfile(
       reliability=QoSReliabilityPolicy.BEST_EFFORT,
